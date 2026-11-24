@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPO_ARCHIVE="https://github.com/moeinfire/multi-client-slipstream-panel/archive/refs/heads/main.tar.gz"
+REPO_ARCHIVE="https://github.com/moeinfire/multi-client-slipstream-load-balancer/archive/refs/heads/master.tar.gz"
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "ERROR: Run as root: sudo bash install-online.sh"
