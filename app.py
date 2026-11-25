@@ -127,7 +127,7 @@ async function refresh(){
  if(liveRefreshBusy)return;
  liveRefreshBusy=true;
  try{
-  const r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);let r;try{r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json','Cache-Control':'no-cache'},signal:controller.signal})}finally{clearTimeout(timeout)}
   if(!r.ok)throw new Error('HTTP '+r.status);
   const contentType=r.headers.get('content-type')||'';
   if(!contentType.includes('application/json'))throw new Error('API returned non-JSON response (session or route issue)');
@@ -956,12 +956,20 @@ def lb_settings():
 @app.route('/api/status')
 @require_login
 def api():
+    # This endpoint must never wait for the traffic sampler's lock or call db(),
+    # because db() performs schema/setting writes on every connection.
+    # Use a short, read-only SQLite connection for the small health snapshot.
+    c=sqlite3.connect('file:'+DB+'?mode=ro',uri=True,timeout=2)
+    c.row_factory=sqlite3.Row
+    try:
+        rows=c.execute('SELECT id,health_state,retry_at,last_error,failure_count FROM tunnels ORDER BY port').fetchall()
+    finally:
+        c.close()
+    defaults={'ready':False,'rx':0,'tx':0,'rx_rate':0,'tx_rate':0}
     out=[]
-    for t in tunnels():
-        # Never run systemctl/IP accounting work in the live status request.
-        # The monitor thread refreshes TRAFFIC_CACHE independently.
-        with TRAFFIC_LOCK:
-            st=dict(TRAFFIC_CACHE.get(t['id'],{'ready':False,'rx':0,'tx':0,'rx_rate':0,'tx_rate':0}))
+    for t in rows:
+        # TRAFFIC_CACHE entries are replaced atomically; do not acquire TRAFFIC_LOCK here.
+        st=dict(TRAFFIC_CACHE.get(int(t['id']),defaults))
         out.append({'id':t['id'],'state':t['health_state'],'retry_at':t['retry_at'],'last_error':t['last_error'],'failure_count':t['failure_count'],
                     'traffic_ready':st['ready'],'rx':st['rx'],'tx':st['tx'],'rx_rate':st['rx_rate'],'tx_rate':st['tx_rate']})
     response=jsonify(tunnels=out)
