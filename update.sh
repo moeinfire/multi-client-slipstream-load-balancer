@@ -46,7 +46,7 @@ download_slipstream_binary() {
   local tmp_bin
   tmp_bin="$(mktemp "${BIN}.download.XXXXXX")"
   if ! curl --fail --location --silent --show-error --retry 3 --connect-timeout 15 \
-      "https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/slipstream" \
+      "https://github.com/AliRezaBeigy/slipstream-rust-deploy/releases/latest/download/slipstream-client-linux-amd64" \
       --output "$tmp_bin"; then
     rm -f -- "$tmp_bin"
     echo "ERROR: Could not download the latest Slipstream Linux AMD64 binary."
