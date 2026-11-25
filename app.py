@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os,re,sqlite3,subprocess,secrets,hmac,time,threading,shlex,pwd,socket,select,socketserver,ipaddress,shutil,concurrent.futures,ssl
 from functools import wraps
-from flask import Flask,request,redirect,session,render_template_string,flash,abort,jsonify
+from flask import Flask,request,redirect,session,render_template_string,flash,abort,jsonify,url_for
 from markupsafe import escape
 
 APP='/opt/slipstream-panel'; DB=APP+'/tunnels.db'
@@ -121,13 +121,13 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function bytes(v){if(v===null||v===undefined)return 'غیرفعال';let n=Math.max(0,Number(v));if(n<1024)return n.toFixed(0)+' B';let u=['KB','MB','GB','TB'];n/=1024;let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(2)+' '+u[i]}
 function rate(v){return bytes(v)+'/s'}
-const currentPath=window.location.pathname;const basePath=currentPath.endsWith('/')?currentPath.slice(0,-1):currentPath;const statusApiUrl=basePath+'/api/status';
+const statusApiUrl={{ url_for('api')|tojson }};
 let liveRefreshBusy=false;
 async function refresh(){
  if(liveRefreshBusy)return;
  liveRefreshBusy=true;
  try{
-  const r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json'}});
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),4000);let r;try{r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json','Cache-Control':'no-cache'},signal:controller.signal})}finally{clearTimeout(timeout)}
   if(!r.ok)throw new Error('HTTP '+r.status);
   const contentType=r.headers.get('content-type')||'';
   if(!contentType.includes('application/json'))throw new Error('API returned non-JSON response (session or route issue)');
@@ -964,7 +964,11 @@ def api():
             st=dict(TRAFFIC_CACHE.get(t['id'],{'ready':False,'rx':0,'tx':0,'rx_rate':0,'tx_rate':0}))
         out.append({'id':t['id'],'state':t['health_state'],'retry_at':t['retry_at'],'last_error':t['last_error'],'failure_count':t['failure_count'],
                     'traffic_ready':st['ready'],'rx':st['rx'],'tx':st['tx'],'rx_rate':st['rx_rate'],'tx_rate':st['tx_rate']})
-    return jsonify(tunnels=out)
+    response=jsonify(tunnels=out)
+    response.headers['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma']='no-cache'
+    response.headers['Expires']='0'
+    return response
 
 @app.post('/traffic/reset/<int:i>')
 @require_login
