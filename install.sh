@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $EUID -eq 0 ]] || { echo "Run as root: sudo bash install.sh"; exit 1; }
+
+# Colored installer UI; automatically disabled when stdout is not a terminal.
+if [[ -t 1 ]]; then
+  C_RESET=[[ $EUID -eq 0 ]] || { echo "Run as root: sudo bash install.sh"; exit 1; }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -69,7 +72,7 @@ install -d -o slipstream -g slipstream -m 0750 /var/log/slipstream-panel
 
 # Keep existing settings when reinstalling; prompt for new values only when needed.
 DEFAULT_PORT="$(cat "$CONF/panel.port" 2>/dev/null || echo 18080)"
-read -r -p "Panel port [${DEFAULT_PORT}]: " PANEL_PORT
+printf "\\033[1;36m\\033[1m▶ Panel port\\033[0m [${DEFAULT_PORT}]: "; read -r PANEL_PORT
 PANEL_PORT="${PANEL_PORT:-$DEFAULT_PORT}"
 [[ "$PANEL_PORT" =~ ^[0-9]+$ ]] && (( PANEL_PORT >= 1 && PANEL_PORT <= 65535 )) || { echo "Invalid TCP port."; exit 1; }
 if [[ "$PANEL_PORT" != "$DEFAULT_PORT" ]] && command -v ss >/dev/null 2>&1 && ss -lntH "sport = :$PANEL_PORT" | grep -q .; then
@@ -80,25 +83,25 @@ SUGGESTED_PATH="$(openssl rand -hex 8)"
 DEFAULT_PATH="$(cat "$CONF/base-path" 2>/dev/null | sed 's#^/##' || true)"
 DEFAULT_PATH="${DEFAULT_PATH:-$SUGGESTED_PATH}"
 echo "Suggested private URL path: /$SUGGESTED_PATH"
-read -r -p "Panel URL path (letters, numbers, _ or -) [${DEFAULT_PATH}]: " PANEL_PATH
+printf "\\033[1;36m\\033[1m▶ Panel URL path\\033[0m [${DEFAULT_PATH}]: "; read -r PANEL_PATH
 PANEL_PATH="${PANEL_PATH:-$DEFAULT_PATH}"
 [[ "$PANEL_PATH" =~ ^[A-Za-z0-9_-]{4,64}$ ]] || { echo "Path must be 4-64 characters: letters, numbers, _ or -. Do not include slashes."; exit 1; }
 
 if [[ -s "$CONF/admin.password" ]]; then
-  read -r -p "Keep existing admin password? [Y/n]: " KEEP_PASSWORD
+  printf "\\033[1;36m\\033[1m▶ Keep existing admin password?\\033[0m [Y/n]: "; read -r KEEP_PASSWORD
 else
   KEEP_PASSWORD="n"
 fi
 if [[ "${KEEP_PASSWORD:-Y}" =~ ^[Nn]$ ]]; then
   while true; do
-    read -r -s -p "Choose admin password (min 12 characters; leave empty for a random password): " ADMIN_PASSWORD; echo
+    printf "\\033[1;36m\\033[1m▶ Choose admin password (min 12 characters; empty = generate one): \\033[0m"; read -r -s ADMIN_PASSWORD; echo
     if [[ -z "$ADMIN_PASSWORD" ]]; then
       ADMIN_PASSWORD="$(openssl rand -base64 32 | tr -d '\n')"
       GENERATED_PASSWORD=1
       break
     fi
     (( ${#ADMIN_PASSWORD} >= 12 )) || { echo "Password must be at least 12 characters."; continue; }
-    read -r -s -p "Confirm admin password: " ADMIN_PASSWORD_CONFIRM; echo
+    printf "\\033[1;36m\\033[1m▶ Confirm admin password: \\033[0m"; read -r -s ADMIN_PASSWORD_CONFIRM; echo
     [[ "$ADMIN_PASSWORD" == "$ADMIN_PASSWORD_CONFIRM" ]] && break
     echo "Passwords do not match. Try again."
   done
@@ -218,16 +221,24 @@ else
   echo "Review systemd/slip.service and its target before enabling it manually."
 fi
 
+# Detect the public IPv4 address for a ready-to-copy panel URL.
+SERVER_IP=""
+if command -v curl >/dev/null 2>&1; then SERVER_IP="$(curl -4fsS --connect-timeout 3 --max-time 5 https://api.ipify.org 2>/dev/null || true)"; fi
+if [[ ! "$SERVER_IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"; fi
+PANEL_URL="http://${SERVER_IP:-SERVER_IP}:${PANEL_PORT}/${PANEL_PATH}/"
 echo
-echo "Slipstream Panel installed."
-echo "URL: http://SERVER_IP:${PANEL_PORT}/${PANEL_PATH}/"
+printf "\\033[1;32m\\033[1m✓ Slipstream Panel installed successfully!\\033[0m\\n"
+printf "\\033[1;36m\\033[1mOpen this address in your browser:\\033[0m\\n"
+printf "\\033[1;32m╔══════════════════════════════════════════════════════════════════╗\\033[0m\\n"
+printf "\\033[1;32m║\\033[0m \\033[1;33m\\033[1m%s\\033[0m\\n" "$PANEL_URL"
+printf "\\033[1;32m╚══════════════════════════════════════════════════════════════════╝\\033[0m\\n"
 if [[ "${GENERATED_PASSWORD:-0}" == 1 ]]; then
-  echo "Generated admin password: $ADMIN_PASSWORD"
+  printf "\\033[1;33mAdmin password (save it securely):\\033[0m %s\\n" "$ADMIN_PASSWORD"
 else
   echo "Admin password: configured (stored in $CONF/admin.password)"
 fi
-echo "Panel port: $PANEL_PORT (stored in $CONF/panel.port)"
-echo "URL path: /$PANEL_PATH/ (stored in $CONF/base-path)"
+echo "Panel port: $PANEL_PORT"
+echo "URL path: /$PANEL_PATH/"
 if [[ ! -x "$BIN" ]]; then
   echo "NOTICE: Slipstream client binary was not found at $BIN."
   echo "Install the Slipstream client separately to use tunnel-management features."
