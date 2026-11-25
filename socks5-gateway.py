@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""SOCKS5 gateway: trusted no-auth client ingress, authenticated remote egress."""
+"""SOCKS5 gateway with independent local and upstream authentication.
+
+If panel credentials are configured, clients must authenticate with those
+credentials and the gateway uses them upstream. If panel credentials are empty,
+the client's selected SOCKS5 method and RFC1929 credentials are negotiated
+with and forwarded to the remote SOCKS5 server.
+"""
+import hmac
 import json
 import select
 import socket
@@ -35,7 +42,29 @@ def read_request(sock):
 
 
 def failure_reply():
-    return b"\x05\x01\x00\x01\x00\x00\x00\x00\x00\x00"
+    return b"\x05\x01\x00\x01\x00\x00\x00\x00\x00"
+
+
+def read_credentials(sock):
+    version = recv_exact(sock, 1)
+    if version != b"\x01":
+        raise ValueError("invalid RFC1929 version")
+    ulen = recv_exact(sock, 1)[0]
+    if ulen == 0:
+        raise ValueError("empty SOCKS5 username")
+    username = recv_exact(sock, ulen)
+    plen = recv_exact(sock, 1)[0]
+    if plen == 0:
+        raise ValueError("empty SOCKS5 password")
+    password = recv_exact(sock, plen)
+    return username, password
+
+
+def send_credentials(sock, username, password):
+    sock.sendall(
+        b"\x01" + bytes((len(username),)) + username +
+        bytes((len(password),)) + password
+    )
 
 
 class Gateway:
@@ -43,12 +72,12 @@ class Gateway:
         self.cfg = config
         self.username = config.get("username", "").encode("utf-8")
         self.password = config.get("password", "").encode("utf-8")
-        self.upstream_auth = bool(config.get("auth_enabled"))
-        if self.upstream_auth and (
+        self.panel_auth = bool(config.get("auth_enabled"))
+        if self.panel_auth and (
             not self.username or not self.password or
             len(self.username) > 255 or len(self.password) > 255
         ):
-            raise ValueError("invalid upstream SOCKS5 credentials in gateway config")
+            raise ValueError("invalid SOCKS5 credentials in gateway config")
 
     def handle(self, client):
         upstream = None
@@ -57,8 +86,16 @@ class Gateway:
             greeting = recv_exact(client, 2)
             if greeting[0] != 5 or greeting[1] == 0:
                 return
-            methods = recv_exact(client, greeting[1])
-            if 0 not in methods:
+            client_methods = list(recv_exact(client, greeting[1]))
+
+            # Configured panel credentials retain the original protected mode.
+            # Otherwise, negotiate whichever method the client and upstream
+            # can both use, preferring username/password when offered.
+            if self.panel_auth:
+                offered = [2] if 2 in client_methods else []
+            else:
+                offered = [m for m in (2, 0) if m in client_methods]
+            if not offered:
                 client.sendall(b"\x05\xff")
                 return
 
@@ -67,24 +104,35 @@ class Gateway:
                 timeout=15
             )
             upstream.settimeout(30)
-
-            # Negotiate independently with the remote SOCKS5 server.
-            method = 2 if self.upstream_auth else 0
-            upstream.sendall(bytes((5, 1, method)))
-            if recv_exact(upstream, 2) != bytes((5, method)):
+            upstream.sendall(bytes((5, len(offered), *offered)))
+            upstream_choice = recv_exact(upstream, 2)
+            if upstream_choice[0] != 5 or upstream_choice[1] not in offered:
                 client.sendall(b"\x05\xff")
                 return
 
-            # The client never needs the remote server's credentials.
-            client.sendall(b"\x05\x00")
+            method = upstream_choice[1]
+            client.sendall(bytes((5, method)))
 
-            if self.upstream_auth:
-                upstream.sendall(
-                    b"\x01" + bytes((len(self.username),)) + self.username +
-                    bytes((len(self.password),)) + self.password
-                )
-                if recv_exact(upstream, 2) != b"\x01\x00":
-                    client.sendall(failure_reply())
+            if method == 2:
+                client_user, client_password = read_credentials(client)
+                if self.panel_auth:
+                    valid = (
+                        hmac.compare_digest(client_user, self.username) and
+                        hmac.compare_digest(client_password, self.password)
+                    )
+                    if not valid:
+                        client.sendall(b"\x01\x01")
+                        return
+                    upstream_user, upstream_password = self.username, self.password
+                else:
+                    # No panel credentials: transparently pass the client's
+                    # RFC1929 credentials to the upstream SOCKS5 service.
+                    upstream_user, upstream_password = client_user, client_password
+
+                send_credentials(upstream, upstream_user, upstream_password)
+                auth_reply = recv_exact(upstream, 2)
+                client.sendall(auth_reply)
+                if auth_reply != b"\x01\x00":
                     return
 
             request = read_request(client)
