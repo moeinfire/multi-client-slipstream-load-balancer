@@ -451,6 +451,12 @@ def start(r):
     else:
         now=time.time();update(r['id'],enabled=1,health_state='cooldown',retry_at=now+COOLDOWN,last_started=now,last_down=now,last_error=(z.stderr or z.stdout).strip() or 'systemd نتوانست تونل را اجرا کند.',failure_count=(r['failure_count'] or 0)+1)
 
+def mark_tunnel_restarting(i,now=None):
+    """A deliberate restart always cancels any pending five-minute cooldown."""
+    now=now or time.time()
+    SUSPECT_SINCE.pop(i,None)
+    update(i,health_state='recovering',retry_at=None,last_started=now,last_check=now,last_error='')
+
 def fail_tunnel(r,reason,now):
     i=r['id']
     ctl('stop',unit(i))
@@ -1077,8 +1083,11 @@ def dns_edit(i):
     try:
         make_unit(r)
         if r['enabled']:
-            reset_log_cursor(r);z=ctl('restart',unit(i));update(i,health_state='recovering',last_started=time.time(),retry_at=None,last_error='')
-            flash('DNS ذخیره و تونل ری‌استارت شد.' if z.returncode==0 else 'DNS ذخیره شد اما ری‌استارت ناموفق بود.')
+            reset_log_cursor(r);now=time.time();mark_tunnel_restarting(i,now);z=ctl('restart',unit(i))
+            if z.returncode!=0:
+                err=(z.stderr or z.stdout).strip() or 'systemd restart failed'
+                update(i,health_state='cooldown',retry_at=time.time()+COOLDOWN,last_error=err,last_down=time.time())
+            flash('DNS ذخیره و تونل ری‌استارت شد؛ بررسی اتصال از ابتدا آغاز شد.' if z.returncode==0 else 'DNS ذخیره شد اما ری‌استارت ناموفق بود: '+(z.stderr or z.stdout).strip())
         else:flash('DNS ذخیره شد؛ تونل دستی متوقف است.')
     except Exception as e:flash('خطا در ذخیره DNS: '+str(e))
     return redirect('/')
@@ -1122,9 +1131,12 @@ def action_all(act):
                 try:
                     reset_log_cursor(r)
                     en=ctl('enable',unit(i))
+                    if en.returncode==0 and act=='restart':
+                        mark_tunnel_restarting(i,now)
                     z=ctl('restart' if act=='restart' else 'start',unit(i)) if en.returncode==0 else en
                     if z.returncode==0:
                         update(i,enabled=1,health_state='recovering',retry_at=None,last_started=now,last_error='')
+                        SUSPECT_SINCE.pop(i,None)
                         succeeded+=1
                     else:
                         err=(z.stderr or z.stdout).strip() or 'systemd نتوانست سرویس را اجرا کند.'
@@ -1152,8 +1164,17 @@ def action(i,act):
     if not r:abort(404)
     if act in ('start','restart'):
         try:
-            make_unit(r);reset_log_cursor(r);ctl('enable',unit(i));z=ctl('restart' if act=='restart' else 'start',unit(i));update(i,enabled=1,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-            flash('تونل راه‌اندازی شد.' if z.returncode==0 else 'خطا در اجرا: '+(z.stderr or z.stdout).strip())
+            make_unit(r);reset_log_cursor(r);ctl('enable',unit(i));now=time.time()
+            if act=='restart':mark_tunnel_restarting(i,now)
+            z=ctl('restart' if act=='restart' else 'start',unit(i))
+            if z.returncode==0:
+                update(i,enabled=1,health_state='recovering',retry_at=None,last_started=now,last_error='')
+                SUSPECT_SINCE.pop(i,None)
+                flash('تونل ری‌استارت شد؛ بررسی اتصال از ابتدا آغاز شد.' if act=='restart' else 'تونل راه‌اندازی شد.')
+            else:
+                err=(z.stderr or z.stdout).strip() or 'systemd start/restart failed'
+                update(i,enabled=1,health_state='cooldown',retry_at=time.time()+COOLDOWN,last_started=now,last_down=time.time(),last_error=err)
+                flash('خطا در اجرا: '+err)
         except Exception as e:flash('خطا: '+str(e))
     elif act=='stop':
         ctl('stop',unit(i));update(i,enabled=0,health_state='manual',retry_at=None,last_error='');flash('توقف دستی انجام شد.')
