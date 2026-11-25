@@ -134,49 +134,61 @@ html[lang="en"] .timer{direction:ltr}
 </style>
 <script>
 (()=> {
- const exact={"ورود به پنل مدیریت":"Sign in to the control panel","رمز عبور":"Password","ورود":"Sign in","مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ":"Manage domains, multiple DNS resolvers, and monitor Slipstream connections from logs","اسکن DNS":"DNS Scanner","خروج":"Log out","کل تونل‌ها":"Total tunnels","متصل":"Connected","در انتظار اتصال مجدد":"Waiting to reconnect","محدوده پورت":"Port range","مدیریت DNS کلی":"Global DNS settings","ذخیره به‌عنوان DNS پیش‌فرض":"Save as default DNS","اعمال روی همه تونل‌ها":"Apply to all tunnels","افزودن دامنه":"Add domain","دامنه":"Domain","پورت محلی (اختیاری)":"Local port (optional)","خودکار":"Automatic","گواهی PEM (اختیاری)":"PEM certificate (optional)","افزودن و اجرای تونل":"Add and start tunnel","لودبالانسر SOCKS5":"SOCKS5 Load Balancer","پورت خروجی لودبالانسر":"Load balancer listening port","وضعیت":"Status","فعال — پورت خروجی در حال سرویس‌دهی است":"Enabled — listening port is active","غیرفعال":"Disabled","فعال‌سازی لودبالانسر":"Enable load balancer","ذخیره تنظیمات":"Save settings","تونل‌ها":"Tunnels","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","تعداد خطا:":"Failures:","دریافتی:":"Received:","ارسالی:":"Sent:","مجموع:":"Total:","سرعت: —":"Speed: —","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","توقف دستی":"Stop manually","شروع":"Start","ری‌استارت":"Restart","لاگ":"Logs","حذف":"Delete","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","منطق پایش سلامت":"Health monitoring logic","اجرای همه":"Start all","توقف همه":"Stop all","ری‌استارت همه فعال‌ها":"Restart all active","بازگشت به پنل":"Back to panel","تنظیم اسکن":"Scanner settings","دامنه Slipstream":"Slipstream domain","پورت DNS (برای همه IPها)":"DNS port (for all IPs)","تعداد اسکن هم‌زمان (Worker)":"Concurrent workers","مهلت تست هر DNS (ثانیه)":"Timeout per DNS (seconds)","نام کاربری SOCKS5 (برای اتصال اصلی)":"SOCKS5 username (for the upstream connection)","رمز عبور SOCKS5 (برای اتصال اصلی)":"SOCKS5 password (for the upstream connection)","مسیر گواهی PEM (اختیاری)":"PEM certificate path (optional)","دامنه مقصد تست":"Test destination domain","شروع اسکن دومرحله‌ای":"Start two-stage scan","توقف اسکن":"Stop scan","پیشرفت اسکن":"Scan progress","موفق":"Successful","ناموفق":"Failed","نتیجه":"Result","زمان":"Time","جزئیات":"Details","هنوز بررسی نشده است.":"Not tested yet.","مرتب‌سازی Latency: کم به زیاد":"Sort latency: low to high","کپی DNSهای نهایی":"Copy successful DNS","کپی DNSهای Ping موفق":"Copy Ping-successful DNS","انتخاب":"Select","اتصال HTTPS گوگل":"Google HTTPS connection","های نهایی سالم (تست کامل Google موفق)":"Successful DNS results (Google test passed)","هنوز نتیجه‌ای وجود ندارد.":"No results yet.","پاسخ داد":"Responded","متصل شد":"Connected"};
- const parts={"کل تونل‌ها":"Total tunnels","تونل‌های حاضر در چرخه:":"Backends in rotation:","هیچ تونل سالمی موجود نیست":"No healthy tunnels available","آدرس ورودی:":"Endpoint:","هر اتصال جدید به روش Round Robin":"Each new connection is assigned using round-robin","متصل":"Connected","در انتظار":"Waiting","قطع شده":"Disconnected","توقف دستی":"Manually stopped","دریافتی":"Received","ارسالی":"Sent","مجموع":"Total","سرعت":"Speed","تعداد خطا":"Failures","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","شروع":"Start","ری‌استارت":"Restart","حذف":"Delete","لاگ":"Logs","دامنه":"Domain","DNSها":"DNS resolvers","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","هر ۱۰ ثانیه":"Every 10 seconds","منطق پایش سلامت":"Health monitoring logic","بازگشت به پنل":"Back to panel","مرحله اول: Ping DNSها":"Stage 1: Ping DNS resolvers","مرحله دوم: تست کامل تونل و HTTPS گوگل":"Stage 2: Full tunnel and Google HTTPS test","اسکن متوقف شد.":"Scan stopped.","اسکن دومرحله‌ای به پایان رسید.":"Two-stage scan completed.","هنوز اسکن شروع نشده است.":"Scan has not started yet.","ابتدا حداقل یک DNS را انتخاب کن.":"Select at least one DNS first.","شروع اسکن ناموفق بود":"Failed to start scan","خطا در ارتباط با پنل":"Panel connection error"};
- const keys=Object.keys(parts).sort((a,b)=>b.length-a.length);
- function translateText(value){
-   const raw=value; const trimmed=value.trim();
-   if(exact[trimmed]) return value.replace(trimmed,exact[trimmed]);
-   let out=value;
-   for(const key of keys) if(out.includes(key)) out=out.split(key).join(parts[key]);
+ const exact={"ورود به پنل مدیریت":"Sign in to the control panel","رمز عبور":"Password","ورود":"Sign in","مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ":"Manage domains, multiple DNS resolvers, and monitor Slipstream connections from logs","اسکن DNS":"DNS Scanner","خروج":"Log out","کل تونل‌ها":"Total tunnels","متصل":"Connected","در انتظار اتصال مجدد":"Waiting to reconnect","محدوده پورت":"Port range","مدیریت DNS کلی":"Global DNS settings","ذخیره به‌عنوان DNS پیش‌فرض":"Save as default DNS","اعمال روی همه تونل‌ها":"Apply to all tunnels","افزودن دامنه":"Add domain","دامنه":"Domain","ها (هر خط یک مورد)":"(one per line)","پورت محلی (اختیاری)":"Local port (optional)","خودکار":"Automatic","گواهی PEM (اختیاری)":"PEM certificate (optional)","افزودن و اجرای تونل":"Add and start tunnel","ها به شکل گزینه‌های تکرارشونده":"resolvers as multiple entries","اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».":"are used as repeated entries. Connection status is detected from Slipstream log messages: “connection ready”, “connection closed”, and “client error”.","لودبالانسر SOCKS5":"SOCKS5 Load Balancer","پورت خروجی لودبالانسر":"Load balancer listening port","وضعیت":"Status","فعال — پورت خروجی در حال سرویس‌دهی است":"Enabled — listening port is active","غیرفعال":"Disabled","فعال‌سازی لودبالانسر":"Enable load balancer","ذخیره تنظیمات":"Save settings","آدرس ورودی:":"Endpoint:","تونل‌های حاضر در چرخه:":"Backends in rotation:","هیچ تونل سالمی موجود نیست":"No healthy tunnels available","تونل‌ها":"Tunnels","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","تعداد خطا:":"Failures:","دریافتی:":"Received:","ارسالی:":"Sent:","مجموع:":"Total:","سرعت: —":"Speed: —","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","توقف دستی":"Stop manually","شروع":"Start","ری‌استارت":"Restart","لاگ":"Logs","حذف":"Delete","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","منطق پایش سلامت":"Health monitoring logic","اجرای همه":"Start all","توقف همه":"Stop all","ری‌استارت همه فعال‌ها":"Restart all active","بازگشت به پنل":"Back to panel","تنظیم اسکن":"Scanner settings","دامنه Slipstream":"Slipstream domain","پورت DNS (برای همه IPها)":"DNS port (for all IPs)","تعداد اسکن هم‌زمان (Worker)":"Concurrent workers","هسته‌های CPU سرور:":"Server CPU cores:","مقدار پیشنهادی اولیه بر اساس CPU":"Initial recommended value based on CPU","مهلت تست هر DNS (ثانیه)":"Timeout per DNS (seconds)","فهرست IPهای DNS (هر خط فقط یک IP؛ محدودیت قبلی ۳۲ مورد حذف شده)":"DNS IP list (one IP per line; the previous 32-item limit has been removed)","نام کاربری SOCKS5 (برای اتصال اصلی)":"SOCKS5 username (for upstream connection)","رمز عبور SOCKS5 (برای اتصال اصلی)":"SOCKS5 password (for upstream connection)","مسیر گواهی PEM (اختیاری)":"PEM certificate path (optional)","دامنه مقصد تست":"Test destination domain","شروع اسکن دومرحله‌ای":"Start two-stage scan","توقف اسکن":"Stop scan","پیشرفت اسکن":"Scan progress","موفق":"Successful","ناموفق":"Failed","نتیجه":"Result","زمان":"Time","جزئیات":"Details","هنوز بررسی نشده است.":"Not tested yet.","مرتب‌سازی Latency: کم به زیاد":"Sort latency: low to high","کپی DNSهای نهایی":"Copy successful DNS","کپی DNSهای Ping موفق":"Copy Ping-successful DNS","انتخاب":"Select","اتصال HTTPS گوگل":"Google HTTPS connection","هنوز نتیجه‌ای وجود ندارد.":"No results yet.","پاسخ داد":"Responded","متصل شد":"Connected","مرحله ۱:":"Stage 1:","مرحله ۲:":"Stage 2:","مرحله اول: Ping DNSها":"Stage 1: Ping DNS resolvers","مرحله دوم: تست کامل تونل و HTTPS گوگل با احراز هویت SOCKS5":"Stage 2: Full tunnel and Google HTTPS test with SOCKS5 authentication","یک‌بار Ping از تمام IPهای DNS گرفته می‌شود.":"All DNS IPs are pinged once.","هنوز اسکن شروع نشده است.":"Scan has not started yet.","اسکن متوقف شد.":"Scan stopped.","اسکن دومرحله‌ای به پایان رسید.":"Two-stage scan completed.","ابتدا حداقل یک DNS را انتخاب کن.":"Select at least one DNS first.","شروع اسکن ناموفق بود":"Failed to start scan","خطا در ارتباط با پنل":"Panel connection error"};
+ const fragments={"ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد.":"Saving the default only affects domains added from now on.","«اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند.":"“Apply to all” replaces DNS settings on all existing tunnels and restarts active tunnels one by one.","برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.":"To use different DNS settings per tunnel, use Edit DNS in that tunnel’s row.","تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟":"Start all registered tunnels, including stopped ones?","تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.":"Stop all tunnels? All tunnel users will be disconnected.","تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.":"Restart all active tunnels? Users will be temporarily disconnected.","هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود.":"Each new connection is assigned to a healthy, active tunnel using round-robin.","تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود.":"Unhealthy or unreachable tunnels are removed from rotation and may rejoin after 5 minutes if healthy.","احراز هویت SOCKS همانند تونل مقصد عبور داده می‌شود؛ این بخش دست‌دهی SOCKS5 را تغییر نمی‌دهد.":"SOCKS authentication is passed through to the destination tunnel; this does not alter the SOCKS5 handshake.","حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است.":"Traffic volume and speed use systemd per-service IP accounting.","سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.":"Speed is calculated using samples taken every 10 seconds.","هر ۱۰ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود.":"Each service’s dedicated log is checked every 10 seconds.","پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛":"A “connection closed” or “client error” message starts a 30-second recovery window.","اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود.":"If “connection ready” appears during this period, the error is considered resolved.","در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود.":"Otherwise, or if the process exits or “address already in use” occurs, the tunnel is stopped and restarted after 5 minutes.","این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.":"This follows the management script logic and does not depend on a SOCKS5 response.","دو مرحله: Ping اطلاع‌رسانی DNSها و تست کامل SOCKS5 احراز هویت‌شده از طریق Slipstream تا Google":"Two stages: DNS ping checks, then a full authenticated SOCKS5 test through Slipstream to Google.","تمام DNSهای واردشده، مستقل از نتیجه Ping، وارد تست کامل می‌شوند؛":"Every entered DNS is fully tested regardless of its ping result.","برای هرکدام یک Slipstream موقت اجرا می‌شود و پس از آماده‌شدن تونل، اسکنر مستقیماً به Listener محلی وصل می‌شود،":"A temporary Slipstream client is started for each DNS. Once the tunnel is ready, the scanner connects directly to its local listener,","روش Username/Password را در دست‌دهی SOCKS5 مذاکره می‌کند":"negotiates the SOCKS5 Username/Password authentication method","و همان نام کاربری و رمز را از داخل تونل برای SOCKS5 سمت سرور می‌فرستد؛ سپس درخواست HTTPS به":"and sends the same credentials through the tunnel to the server-side SOCKS5 proxy; it then sends an HTTPS request to","را عبور می‌دهد. پاسخ TLS معتبر و HTTP 204 از":"A valid TLS response and HTTP 204 from","لازم است تا DNS سالم اعلام شود.":"are required for a DNS resolver to be marked healthy.","نتیجه Ping فقط اطلاعاتی است و در انتخاب DNSها برای مرحله دوم نقشی ندارد؛":"Ping results are informational only and do not affect which DNS entries are selected for stage two;","حتی DNSهایی که ICMP را مسدود کرده‌اند نیز تست کامل می‌شوند.":"even DNS resolvers that block ICMP receive the full test.","اعتبارنامه‌ها ذخیره نمی‌شوند و فقط در حافظه همان اسکن استفاده می‌شوند.":"Credentials are not stored and are used only in memory during the scan.","Latency زمان کامل تا پاسخ Google است.":"Latency measures the full time until Google responds.","تعداد Workerها سقف کارهای هم‌زمان هر مرحله است.":"Worker count sets the maximum number of concurrent tasks in each stage.","تونل‌های اصلی ری‌استارت یا تغییر نمی‌کنند.":"The main tunnels are not restarted or modified.","نتایج موفق به‌صورت پیش‌فرض بر اساس کمترین Latency نمایش داده می‌شوند؛ برای انتخاب، تیک کنار DNS را بزن.":"Successful results are sorted by lowest latency by default; tick the checkbox beside a DNS to select it.","تمام DNSهای واردشده، مستقل از نتیجه Ping، آزمایش می‌شوند.":"All entered DNS resolvers are tested regardless of ping results.","پس از پایان اسکن DNSهای سالم اینجا نمایش داده می‌شوند.":"Healthy DNS resolvers will appear here after the scan completes."};
+ const keys=Object.keys(fragments).sort((a,b)=>b.length-a.length);
+ const originals=new WeakMap(), attrOriginals=new WeakMap();
+ let lang=localStorage.getItem('slipstream-panel-language')||'fa';
+ function translate(s){
+   if(Object.prototype.hasOwnProperty.call(exact,s.trim()))return s.replace(s.trim(),exact[s.trim()]);
+   let out=s;
+   for(const k of keys)if(out.includes(k))out=out.split(k).join(fragments[k]);
    return out;
  }
- function apply(lang){
-   const en=lang==='en';
-   document.documentElement.lang=en?'en':'fa';
-   document.documentElement.dir=en?'ltr':'rtl';
-   document.title=en?'Slipstream Manager':'Slipstream Manager';
-   document.querySelectorAll('body *').forEach(el=>{
-     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
-     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)n.nodeValue=en?translateText(n.nodeValue):n.__fa||n.nodeValue});
-     ['placeholder','title','aria-label'].forEach(attr=>{
-       if(!el.hasAttribute(attr))return;
-       if(en){if(!el.dataset['fa_'+attr])el.dataset['fa_'+attr]=el.getAttribute(attr);el.setAttribute(attr,translateText(el.getAttribute(attr)))}
-       else if(el.dataset['fa_'+attr])el.setAttribute(attr,el.dataset['fa_'+attr]);
-     });
+ function walk(root,fn){
+   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+     acceptNode(n){const p=n.parentElement;if(!p||/^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|INPUT|PRE|CODE)$/.test(p.tagName))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT;}
    });
-   const b=document.getElementById('languageSwitch');
-   if(b)b.textContent=en?'🇮🇷 فارسی':'🇬🇧 English';
-   document.documentElement.dataset.language=lang;
-   localStorage.setItem('slipstream-panel-language',lang);
+   let n;while(n=walker.nextNode())fn(n);
  }
- const original=new WeakMap();
- function scan(){
-   if(document.documentElement.dataset.language!=='en')return;
-   document.querySelectorAll('body *').forEach(el=>{
-     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE')return;
-     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE){if(!original.has(n))original.set(n,n.nodeValue);n.nodeValue=translateText(original.get(n))}});
-   });
+ function renderText(n){
+   if(!originals.has(n))originals.set(n,n.nodeValue);
+   const base=originals.get(n);
+   n.nodeValue=lang==='en'?translate(base):base;
+ }
+ function renderAttrs(root){
+   const nodes=[root,...root.querySelectorAll('*')];
+   for(const el of nodes){
+     if(!el||!el.getAttribute)continue;
+     let saved=attrOriginals.get(el);if(!saved){saved={};attrOriginals.set(el,saved);}
+     for(const a of ['placeholder','title','aria-label']){
+       if(!el.hasAttribute(a)&&!(a in saved))continue;
+       if(!(a in saved))saved[a]=el.getAttribute(a);
+       if(saved[a]!==null)el.setAttribute(a,lang==='en'?translate(saved[a]):saved[a]);
+     }
+   }
+ }
+ function render(root=document.body){
+   walk(root,renderText);
+   renderAttrs(root);
+   document.documentElement.lang=lang;document.documentElement.dir=lang==='en'?'ltr':'rtl';
+   const b=document.getElementById('languageSwitch');if(b)b.textContent=lang==='en'?'🇮🇷 فارسی':'🇬🇧 English';
  }
  const button=document.createElement('button');button.id='languageSwitch';button.type='button';
- button.addEventListener('click',()=>apply(document.documentElement.dataset.language==='en'?'fa':'en'));
+ button.addEventListener('click',()=>{
+   lang=lang==='en'?'fa':'en';localStorage.setItem('slipstream-panel-language',lang);
+   observer.disconnect();render();observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+ });
  document.body.appendChild(button);
- const saved=localStorage.getItem('slipstream-panel-language')||'fa';
- apply(saved);
- new MutationObserver(()=>scan()).observe(document.body,{childList:true,subtree:true,characterData:true});
+ const observer=new MutationObserver(records=>{
+   observer.disconnect();
+   for(const rec of records){
+     if(rec.type==='characterData')renderText(rec.target);
+     else rec.addedNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)renderText(n);else if(n.nodeType===Node.ELEMENT_NODE){walk(n,renderText);renderAttrs(n);}});
+   }
+   observer.takeRecords();observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+ });
+ render();observer.observe(document.body,{childList:true,subtree:true,characterData:true});
 })();
 </script></body></html>'''
 
@@ -564,49 +576,61 @@ html[lang="en"] .timer{direction:ltr}
 </style>
 <script>
 (()=> {
- const exact={"ورود به پنل مدیریت":"Sign in to the control panel","رمز عبور":"Password","ورود":"Sign in","مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ":"Manage domains, multiple DNS resolvers, and monitor Slipstream connections from logs","اسکن DNS":"DNS Scanner","خروج":"Log out","کل تونل‌ها":"Total tunnels","متصل":"Connected","در انتظار اتصال مجدد":"Waiting to reconnect","محدوده پورت":"Port range","مدیریت DNS کلی":"Global DNS settings","ذخیره به‌عنوان DNS پیش‌فرض":"Save as default DNS","اعمال روی همه تونل‌ها":"Apply to all tunnels","افزودن دامنه":"Add domain","دامنه":"Domain","پورت محلی (اختیاری)":"Local port (optional)","خودکار":"Automatic","گواهی PEM (اختیاری)":"PEM certificate (optional)","افزودن و اجرای تونل":"Add and start tunnel","لودبالانسر SOCKS5":"SOCKS5 Load Balancer","پورت خروجی لودبالانسر":"Load balancer listening port","وضعیت":"Status","فعال — پورت خروجی در حال سرویس‌دهی است":"Enabled — listening port is active","غیرفعال":"Disabled","فعال‌سازی لودبالانسر":"Enable load balancer","ذخیره تنظیمات":"Save settings","تونل‌ها":"Tunnels","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","تعداد خطا:":"Failures:","دریافتی:":"Received:","ارسالی:":"Sent:","مجموع:":"Total:","سرعت: —":"Speed: —","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","توقف دستی":"Stop manually","شروع":"Start","ری‌استارت":"Restart","لاگ":"Logs","حذف":"Delete","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","منطق پایش سلامت":"Health monitoring logic","اجرای همه":"Start all","توقف همه":"Stop all","ری‌استارت همه فعال‌ها":"Restart all active","بازگشت به پنل":"Back to panel","تنظیم اسکن":"Scanner settings","دامنه Slipstream":"Slipstream domain","پورت DNS (برای همه IPها)":"DNS port (for all IPs)","تعداد اسکن هم‌زمان (Worker)":"Concurrent workers","مهلت تست هر DNS (ثانیه)":"Timeout per DNS (seconds)","نام کاربری SOCKS5 (برای اتصال اصلی)":"SOCKS5 username (for the upstream connection)","رمز عبور SOCKS5 (برای اتصال اصلی)":"SOCKS5 password (for the upstream connection)","مسیر گواهی PEM (اختیاری)":"PEM certificate path (optional)","دامنه مقصد تست":"Test destination domain","شروع اسکن دومرحله‌ای":"Start two-stage scan","توقف اسکن":"Stop scan","پیشرفت اسکن":"Scan progress","موفق":"Successful","ناموفق":"Failed","نتیجه":"Result","زمان":"Time","جزئیات":"Details","هنوز بررسی نشده است.":"Not tested yet.","مرتب‌سازی Latency: کم به زیاد":"Sort latency: low to high","کپی DNSهای نهایی":"Copy successful DNS","کپی DNSهای Ping موفق":"Copy Ping-successful DNS","انتخاب":"Select","اتصال HTTPS گوگل":"Google HTTPS connection","های نهایی سالم (تست کامل Google موفق)":"Successful DNS results (Google test passed)","هنوز نتیجه‌ای وجود ندارد.":"No results yet.","پاسخ داد":"Responded","متصل شد":"Connected"};
- const parts={"کل تونل‌ها":"Total tunnels","تونل‌های حاضر در چرخه:":"Backends in rotation:","هیچ تونل سالمی موجود نیست":"No healthy tunnels available","آدرس ورودی:":"Endpoint:","هر اتصال جدید به روش Round Robin":"Each new connection is assigned using round-robin","متصل":"Connected","در انتظار":"Waiting","قطع شده":"Disconnected","توقف دستی":"Manually stopped","دریافتی":"Received","ارسالی":"Sent","مجموع":"Total","سرعت":"Speed","تعداد خطا":"Failures","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","شروع":"Start","ری‌استارت":"Restart","حذف":"Delete","لاگ":"Logs","دامنه":"Domain","DNSها":"DNS resolvers","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","هر ۱۰ ثانیه":"Every 10 seconds","منطق پایش سلامت":"Health monitoring logic","بازگشت به پنل":"Back to panel","مرحله اول: Ping DNSها":"Stage 1: Ping DNS resolvers","مرحله دوم: تست کامل تونل و HTTPS گوگل":"Stage 2: Full tunnel and Google HTTPS test","اسکن متوقف شد.":"Scan stopped.","اسکن دومرحله‌ای به پایان رسید.":"Two-stage scan completed.","هنوز اسکن شروع نشده است.":"Scan has not started yet.","ابتدا حداقل یک DNS را انتخاب کن.":"Select at least one DNS first.","شروع اسکن ناموفق بود":"Failed to start scan","خطا در ارتباط با پنل":"Panel connection error"};
- const keys=Object.keys(parts).sort((a,b)=>b.length-a.length);
- function translateText(value){
-   const raw=value; const trimmed=value.trim();
-   if(exact[trimmed]) return value.replace(trimmed,exact[trimmed]);
-   let out=value;
-   for(const key of keys) if(out.includes(key)) out=out.split(key).join(parts[key]);
+ const exact={"ورود به پنل مدیریت":"Sign in to the control panel","رمز عبور":"Password","ورود":"Sign in","مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ":"Manage domains, multiple DNS resolvers, and monitor Slipstream connections from logs","اسکن DNS":"DNS Scanner","خروج":"Log out","کل تونل‌ها":"Total tunnels","متصل":"Connected","در انتظار اتصال مجدد":"Waiting to reconnect","محدوده پورت":"Port range","مدیریت DNS کلی":"Global DNS settings","ذخیره به‌عنوان DNS پیش‌فرض":"Save as default DNS","اعمال روی همه تونل‌ها":"Apply to all tunnels","افزودن دامنه":"Add domain","دامنه":"Domain","ها (هر خط یک مورد)":"(one per line)","پورت محلی (اختیاری)":"Local port (optional)","خودکار":"Automatic","گواهی PEM (اختیاری)":"PEM certificate (optional)","افزودن و اجرای تونل":"Add and start tunnel","ها به شکل گزینه‌های تکرارشونده":"resolvers as multiple entries","اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».":"are used as repeated entries. Connection status is detected from Slipstream log messages: “connection ready”, “connection closed”, and “client error”.","لودبالانسر SOCKS5":"SOCKS5 Load Balancer","پورت خروجی لودبالانسر":"Load balancer listening port","وضعیت":"Status","فعال — پورت خروجی در حال سرویس‌دهی است":"Enabled — listening port is active","غیرفعال":"Disabled","فعال‌سازی لودبالانسر":"Enable load balancer","ذخیره تنظیمات":"Save settings","آدرس ورودی:":"Endpoint:","تونل‌های حاضر در چرخه:":"Backends in rotation:","هیچ تونل سالمی موجود نیست":"No healthy tunnels available","تونل‌ها":"Tunnels","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","تعداد خطا:":"Failures:","دریافتی:":"Received:","ارسالی:":"Sent:","مجموع:":"Total:","سرعت: —":"Speed: —","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","توقف دستی":"Stop manually","شروع":"Start","ری‌استارت":"Restart","لاگ":"Logs","حذف":"Delete","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","منطق پایش سلامت":"Health monitoring logic","اجرای همه":"Start all","توقف همه":"Stop all","ری‌استارت همه فعال‌ها":"Restart all active","بازگشت به پنل":"Back to panel","تنظیم اسکن":"Scanner settings","دامنه Slipstream":"Slipstream domain","پورت DNS (برای همه IPها)":"DNS port (for all IPs)","تعداد اسکن هم‌زمان (Worker)":"Concurrent workers","هسته‌های CPU سرور:":"Server CPU cores:","مقدار پیشنهادی اولیه بر اساس CPU":"Initial recommended value based on CPU","مهلت تست هر DNS (ثانیه)":"Timeout per DNS (seconds)","فهرست IPهای DNS (هر خط فقط یک IP؛ محدودیت قبلی ۳۲ مورد حذف شده)":"DNS IP list (one IP per line; the previous 32-item limit has been removed)","نام کاربری SOCKS5 (برای اتصال اصلی)":"SOCKS5 username (for upstream connection)","رمز عبور SOCKS5 (برای اتصال اصلی)":"SOCKS5 password (for upstream connection)","مسیر گواهی PEM (اختیاری)":"PEM certificate path (optional)","دامنه مقصد تست":"Test destination domain","شروع اسکن دومرحله‌ای":"Start two-stage scan","توقف اسکن":"Stop scan","پیشرفت اسکن":"Scan progress","موفق":"Successful","ناموفق":"Failed","نتیجه":"Result","زمان":"Time","جزئیات":"Details","هنوز بررسی نشده است.":"Not tested yet.","مرتب‌سازی Latency: کم به زیاد":"Sort latency: low to high","کپی DNSهای نهایی":"Copy successful DNS","کپی DNSهای Ping موفق":"Copy Ping-successful DNS","انتخاب":"Select","اتصال HTTPS گوگل":"Google HTTPS connection","هنوز نتیجه‌ای وجود ندارد.":"No results yet.","پاسخ داد":"Responded","متصل شد":"Connected","مرحله ۱:":"Stage 1:","مرحله ۲:":"Stage 2:","مرحله اول: Ping DNSها":"Stage 1: Ping DNS resolvers","مرحله دوم: تست کامل تونل و HTTPS گوگل با احراز هویت SOCKS5":"Stage 2: Full tunnel and Google HTTPS test with SOCKS5 authentication","یک‌بار Ping از تمام IPهای DNS گرفته می‌شود.":"All DNS IPs are pinged once.","هنوز اسکن شروع نشده است.":"Scan has not started yet.","اسکن متوقف شد.":"Scan stopped.","اسکن دومرحله‌ای به پایان رسید.":"Two-stage scan completed.","ابتدا حداقل یک DNS را انتخاب کن.":"Select at least one DNS first.","شروع اسکن ناموفق بود":"Failed to start scan","خطا در ارتباط با پنل":"Panel connection error"};
+ const fragments={"ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد.":"Saving the default only affects domains added from now on.","«اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند.":"“Apply to all” replaces DNS settings on all existing tunnels and restarts active tunnels one by one.","برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.":"To use different DNS settings per tunnel, use Edit DNS in that tunnel’s row.","تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟":"Start all registered tunnels, including stopped ones?","تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.":"Stop all tunnels? All tunnel users will be disconnected.","تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.":"Restart all active tunnels? Users will be temporarily disconnected.","هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود.":"Each new connection is assigned to a healthy, active tunnel using round-robin.","تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود.":"Unhealthy or unreachable tunnels are removed from rotation and may rejoin after 5 minutes if healthy.","احراز هویت SOCKS همانند تونل مقصد عبور داده می‌شود؛ این بخش دست‌دهی SOCKS5 را تغییر نمی‌دهد.":"SOCKS authentication is passed through to the destination tunnel; this does not alter the SOCKS5 handshake.","حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است.":"Traffic volume and speed use systemd per-service IP accounting.","سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.":"Speed is calculated using samples taken every 10 seconds.","هر ۱۰ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود.":"Each service’s dedicated log is checked every 10 seconds.","پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛":"A “connection closed” or “client error” message starts a 30-second recovery window.","اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود.":"If “connection ready” appears during this period, the error is considered resolved.","در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود.":"Otherwise, or if the process exits or “address already in use” occurs, the tunnel is stopped and restarted after 5 minutes.","این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.":"This follows the management script logic and does not depend on a SOCKS5 response.","دو مرحله: Ping اطلاع‌رسانی DNSها و تست کامل SOCKS5 احراز هویت‌شده از طریق Slipstream تا Google":"Two stages: DNS ping checks, then a full authenticated SOCKS5 test through Slipstream to Google.","تمام DNSهای واردشده، مستقل از نتیجه Ping، وارد تست کامل می‌شوند؛":"Every entered DNS is fully tested regardless of its ping result.","برای هرکدام یک Slipstream موقت اجرا می‌شود و پس از آماده‌شدن تونل، اسکنر مستقیماً به Listener محلی وصل می‌شود،":"A temporary Slipstream client is started for each DNS. Once the tunnel is ready, the scanner connects directly to its local listener,","روش Username/Password را در دست‌دهی SOCKS5 مذاکره می‌کند":"negotiates the SOCKS5 Username/Password authentication method","و همان نام کاربری و رمز را از داخل تونل برای SOCKS5 سمت سرور می‌فرستد؛ سپس درخواست HTTPS به":"and sends the same credentials through the tunnel to the server-side SOCKS5 proxy; it then sends an HTTPS request to","را عبور می‌دهد. پاسخ TLS معتبر و HTTP 204 از":"A valid TLS response and HTTP 204 from","لازم است تا DNS سالم اعلام شود.":"are required for a DNS resolver to be marked healthy.","نتیجه Ping فقط اطلاعاتی است و در انتخاب DNSها برای مرحله دوم نقشی ندارد؛":"Ping results are informational only and do not affect which DNS entries are selected for stage two;","حتی DNSهایی که ICMP را مسدود کرده‌اند نیز تست کامل می‌شوند.":"even DNS resolvers that block ICMP receive the full test.","اعتبارنامه‌ها ذخیره نمی‌شوند و فقط در حافظه همان اسکن استفاده می‌شوند.":"Credentials are not stored and are used only in memory during the scan.","Latency زمان کامل تا پاسخ Google است.":"Latency measures the full time until Google responds.","تعداد Workerها سقف کارهای هم‌زمان هر مرحله است.":"Worker count sets the maximum number of concurrent tasks in each stage.","تونل‌های اصلی ری‌استارت یا تغییر نمی‌کنند.":"The main tunnels are not restarted or modified.","نتایج موفق به‌صورت پیش‌فرض بر اساس کمترین Latency نمایش داده می‌شوند؛ برای انتخاب، تیک کنار DNS را بزن.":"Successful results are sorted by lowest latency by default; tick the checkbox beside a DNS to select it.","تمام DNSهای واردشده، مستقل از نتیجه Ping، آزمایش می‌شوند.":"All entered DNS resolvers are tested regardless of ping results.","پس از پایان اسکن DNSهای سالم اینجا نمایش داده می‌شوند.":"Healthy DNS resolvers will appear here after the scan completes."};
+ const keys=Object.keys(fragments).sort((a,b)=>b.length-a.length);
+ const originals=new WeakMap(), attrOriginals=new WeakMap();
+ let lang=localStorage.getItem('slipstream-panel-language')||'fa';
+ function translate(s){
+   if(Object.prototype.hasOwnProperty.call(exact,s.trim()))return s.replace(s.trim(),exact[s.trim()]);
+   let out=s;
+   for(const k of keys)if(out.includes(k))out=out.split(k).join(fragments[k]);
    return out;
  }
- function apply(lang){
-   const en=lang==='en';
-   document.documentElement.lang=en?'en':'fa';
-   document.documentElement.dir=en?'ltr':'rtl';
-   document.title=en?'Slipstream Manager':'Slipstream Manager';
-   document.querySelectorAll('body *').forEach(el=>{
-     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
-     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)n.nodeValue=en?translateText(n.nodeValue):n.__fa||n.nodeValue});
-     ['placeholder','title','aria-label'].forEach(attr=>{
-       if(!el.hasAttribute(attr))return;
-       if(en){if(!el.dataset['fa_'+attr])el.dataset['fa_'+attr]=el.getAttribute(attr);el.setAttribute(attr,translateText(el.getAttribute(attr)))}
-       else if(el.dataset['fa_'+attr])el.setAttribute(attr,el.dataset['fa_'+attr]);
-     });
+ function walk(root,fn){
+   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+     acceptNode(n){const p=n.parentElement;if(!p||/^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|INPUT|PRE|CODE)$/.test(p.tagName))return NodeFilter.FILTER_REJECT;return NodeFilter.FILTER_ACCEPT;}
    });
-   const b=document.getElementById('languageSwitch');
-   if(b)b.textContent=en?'🇮🇷 فارسی':'🇬🇧 English';
-   document.documentElement.dataset.language=lang;
-   localStorage.setItem('slipstream-panel-language',lang);
+   let n;while(n=walker.nextNode())fn(n);
  }
- const original=new WeakMap();
- function scan(){
-   if(document.documentElement.dataset.language!=='en')return;
-   document.querySelectorAll('body *').forEach(el=>{
-     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE')return;
-     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE){if(!original.has(n))original.set(n,n.nodeValue);n.nodeValue=translateText(original.get(n))}});
-   });
+ function renderText(n){
+   if(!originals.has(n))originals.set(n,n.nodeValue);
+   const base=originals.get(n);
+   n.nodeValue=lang==='en'?translate(base):base;
+ }
+ function renderAttrs(root){
+   const nodes=[root,...root.querySelectorAll('*')];
+   for(const el of nodes){
+     if(!el||!el.getAttribute)continue;
+     let saved=attrOriginals.get(el);if(!saved){saved={};attrOriginals.set(el,saved);}
+     for(const a of ['placeholder','title','aria-label']){
+       if(!el.hasAttribute(a)&&!(a in saved))continue;
+       if(!(a in saved))saved[a]=el.getAttribute(a);
+       if(saved[a]!==null)el.setAttribute(a,lang==='en'?translate(saved[a]):saved[a]);
+     }
+   }
+ }
+ function render(root=document.body){
+   walk(root,renderText);
+   renderAttrs(root);
+   document.documentElement.lang=lang;document.documentElement.dir=lang==='en'?'ltr':'rtl';
+   const b=document.getElementById('languageSwitch');if(b)b.textContent=lang==='en'?'🇮🇷 فارسی':'🇬🇧 English';
  }
  const button=document.createElement('button');button.id='languageSwitch';button.type='button';
- button.addEventListener('click',()=>apply(document.documentElement.dataset.language==='en'?'fa':'en'));
+ button.addEventListener('click',()=>{
+   lang=lang==='en'?'fa':'en';localStorage.setItem('slipstream-panel-language',lang);
+   observer.disconnect();render();observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+ });
  document.body.appendChild(button);
- const saved=localStorage.getItem('slipstream-panel-language')||'fa';
- apply(saved);
- new MutationObserver(()=>scan()).observe(document.body,{childList:true,subtree:true,characterData:true});
+ const observer=new MutationObserver(records=>{
+   observer.disconnect();
+   for(const rec of records){
+     if(rec.type==='characterData')renderText(rec.target);
+     else rec.addedNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)renderText(n);else if(n.nodeType===Node.ELEMENT_NODE){walk(n,renderText);renderAttrs(n);}});
+   }
+   observer.takeRecords();observer.observe(document.body,{childList:true,subtree:true,characterData:true});
+ });
+ render();observer.observe(document.body,{childList:true,subtree:true,characterData:true});
 })();
 </script></body></html>''' 
 
