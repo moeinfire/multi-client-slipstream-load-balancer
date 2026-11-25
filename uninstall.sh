@@ -107,7 +107,7 @@ info "Firewall rules and system-wide packages will NOT be changed."
 echo
 
 if [[ "$YES" -ne 1 ]]; then
-  read -r -p "${BOLD}${YELLOW}Type REMOVE to continue: ${RESET}" CONFIRM
+  read -r -p "${BOLD}Type ${RED}REMOVE${RESET}${BOLD} to continue: ${RESET}" CONFIRM
   if [[ "$CONFIRM" != "REMOVE" ]]; then
     info "Cancelled. No changes were made."
     exit 0
