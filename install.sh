@@ -16,26 +16,40 @@ fi
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# When installing from a Git checkout, fast-forward to the latest main before
-# using any bundled files. Refuse dirty/non-main checkouts rather than
-# overwriting local work or installing an unintended branch.
-if [[ -d "$SCRIPT_DIR/.git" && "${SLIPSTREAM_INSTALLER_UPDATED:-0}" != "1" ]]; then
-  command -v git >/dev/null 2>&1 || { echo "ERROR: git is required to update this checkout."; exit 1; }
-  GIT_SAFE=(git -c "safe.directory=$SCRIPT_DIR" -C "$SCRIPT_DIR")
-  if [[ -n "$("${GIT_SAFE[@]}" status --porcelain)" ]]; then
-    echo "ERROR: repository has local changes; commit/stash them before installing."
-    exit 1
+# Support both local installation and one-command online installation.
+# If this script was launched remotely, download the project source and re-run
+# this same installer from the extracted archive.
+if [[ ! -f "$SCRIPT_DIR/app.py" || ! -f "$SCRIPT_DIR/slip-manager.py" || ! -f "$SCRIPT_DIR/systemd/slip.service" ]]; then
+  if ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
+    echo "Installing required download tools..."
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y curl tar ca-certificates
   fi
-  CURRENT_BRANCH="$("${GIT_SAFE[@]}" branch --show-current)"
-  if [[ "$CURRENT_BRANCH" != "main" ]]; then
-    echo "ERROR: installer checkout is on '$CURRENT_BRANCH', not 'main'."
-    echo "Switch to main and run the installer again."
-    exit 1
-  fi
-  "${GIT_SAFE[@]}" fetch --quiet origin main || { echo "ERROR: could not fetch latest main from origin."; exit 1; }
-  "${GIT_SAFE[@]}" pull --ff-only --quiet origin main || { echo "ERROR: could not fast-forward to origin/main."; exit 1; }
-  export SLIPSTREAM_INSTALLER_UPDATED=1
-  exec bash "$SCRIPT_DIR/install.sh" "$@"
+
+  TMP_DIR="$(mktemp -d -t slipstream-panel-install.XXXXXX)"
+  trap 'rm -rf -- "$TMP_DIR"' EXIT
+  ARCHIVE="$TMP_DIR/source.tar.gz"
+  SOURCE_DIR="$TMP_DIR/source"
+  mkdir -p "$SOURCE_DIR"
+
+  echo "Downloading the latest Slipstream Panel source from GitHub..."
+  curl --fail --location --silent --show-error --retry 3 \
+    "https://github.com/moeinfire/multi-client-slipstream-load-balancer/archive/refs/heads/master.tar.gz" \
+    --output "$ARCHIVE"
+
+  echo "Extracting project files..."
+  tar -xzf "$ARCHIVE" --strip-components=1 -C "$SOURCE_DIR"
+
+  for file in install.sh app.py slip-manager.py systemd/slip.service; do
+    if [[ ! -f "$SOURCE_DIR/$file" ]]; then
+      echo "ERROR: Required project file is missing from the downloaded archive: $file"
+      exit 1
+    fi
+  done
+
+  echo "Source archive verified. Starting the project installer..."
+  SLIPSTREAM_INSTALLER_BOOTSTRAPPED=1 bash "$SOURCE_DIR/install.sh" "$@"
+  exit $?
 fi
 
 APP=/opt/slipstream-panel
