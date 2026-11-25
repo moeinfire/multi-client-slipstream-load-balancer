@@ -56,7 +56,7 @@ download_slipstream_binary() {
 import pathlib, sys
 p = pathlib.Path(sys.argv[1])
 h = p.read_bytes()[:20]
-if len(h) < 20 or h[:4] != b"\\x7fELF" or h[4] != 2:
+if len(h) < 20 or h[:4] != b"\x7fELF" or h[4] != 2:
     raise SystemExit("Downloaded file is not a 64-bit ELF executable.")
 if h[5] not in (1, 2):
     raise SystemExit("Downloaded ELF has an unsupported byte order.")
