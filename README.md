@@ -29,6 +29,8 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Start, stop, restart, and delete individual tunnels.
 - Perform bulk operations to start, stop, or restart multiple tunnels.
 - Configure a local listening port for each tunnel.
+- Enable or disable SOCKS5 authentication independently for each tunnel, with its own username and password.
+- Apply shared SOCKS5 authentication credentials to all domains added in one bulk operation.
 - Optional PEM certificate path configuration.
 - View individual tunnel logs for troubleshooting.
 
@@ -46,6 +48,8 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - First-stage ICMP Ping testing for DNS resolver IPs.
 - Second-stage end-to-end Slipstream tunnel testing.
 - SOCKS5 Username/Password authentication during the test.
+- Toggle scanner authentication on or off to test authenticated or no-auth SOCKS5 endpoints.
+- Stage two tests only DNS resolver IPs that passed the stage-one ICMP ping.
 - HTTPS connectivity verification against Google.
 - TLS certificate validation and HTTP 204 response verification.
 - Measure end-to-end latency and sort successful DNS results.
@@ -61,6 +65,7 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Temporarily exclude unhealthy or unreachable tunnels.
 - Reintroduce recovered tunnels after the cooldown period.
 - Forward SOCKS5 authentication to the selected backend.
+- Enforce each tunnel's configured local SOCKS5 authentication before relaying traffic.
 
 ### 📊 Traffic Monitoring
 
@@ -160,6 +165,8 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - شروع، توقف، راه‌اندازی مجدد و حذف جداگانه هر تونل.
 - اجرای عملیات گروهی برای شروع، توقف یا راه‌اندازی مجدد چندین تونل.
 - تنظیم پورت شنونده محلی برای هر تونل.
+- فعال یا غیرفعال‌سازی مستقل احراز هویت SOCKS5 برای هر تونل، همراه با نام کاربری و رمز عبور اختصاصی.
+- اعمال نام کاربری و رمز مشترک SOCKS5 روی تمام دامنه‌هایی که به‌صورت گروهی اضافه می‌شوند.
 - امکان تنظیم مسیر گواهی PEM.
 - مشاهده لاگ اختصاصی هر تونل برای عیب‌یابی.
 
@@ -177,6 +184,8 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - مرحله اول: آزمایش Ping از نوع ICMP برای IP آدرس DNS Resolverها.
 - مرحله دوم: آزمایش کامل و انتها‌به‌انتهای تونل Slipstream.
 - پشتیبانی از احراز هویت Username/Password در SOCKS5 هنگام آزمایش.
+- امکان فعال یا غیرفعال کردن احراز هویت در اسکنر برای آزمایش SOCKS5 با رمز یا بدون احراز هویت.
+- در مرحله دوم فقط DNSهایی آزمایش می‌شوند که در مرحله اول Ping موفق داشته‌اند.
 - بررسی اتصال HTTPS به سرویس Google.
 - اعتبارسنجی گواهی TLS و بررسی پاسخ HTTP 204.
 - اندازه‌گیری تأخیر انتها‌به‌انتها و مرتب‌سازی نتایج موفق DNS.
@@ -192,6 +201,7 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - خارج کردن موقت تونل‌های ناسالم یا غیرقابل دسترس از چرخه.
 - بازگرداندن تونل‌های بازیابی‌شده پس از پایان زمان Cooldown.
 - انتقال اطلاعات احراز هویت SOCKS5 به Backend انتخاب‌شده.
+- اعمال و بررسی احراز هویت محلی اختصاصی هر تونل پیش از انتقال ترافیک به مقصد.
 
 ### 📊 پایش ترافیک
 
