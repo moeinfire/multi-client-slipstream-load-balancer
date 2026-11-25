@@ -813,7 +813,7 @@ def _dns_scan_latency(target_domain,upstream_port,username,password,timeout_sec,
         elapsed=(time.monotonic()-started)*1000
         if not re.match(r'^HTTP/\d(?:\.\d)? 204(?:\s|$)',status):
             raise ConnectionError(f'پاسخ مورد انتظار Google 204 نبود: {status}')
-        return True,'احراز هویت Username/Password در SOCKS5 سمت سرور موفق؛ TLS معتبر و پاسخ HTTP 204 از Google دریافت شد',elapsed
+        return True,('احراز هویت Username/Password در SOCKS5 سمت سرور موفق' if auth_enabled else 'اتصال SOCKS5 بدون احراز هویت موفق')+'؛ TLS معتبر و پاسخ HTTP 204 از Google دریافت شد',elapsed
     except Exception as e:
         return False,f'{type(e).__name__}: {e}',(time.monotonic()-started)*1000
     finally:
