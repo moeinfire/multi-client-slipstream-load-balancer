@@ -121,13 +121,13 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function bytes(v){if(v===null||v===undefined)return 'غیرفعال';let n=Math.max(0,Number(v));if(n<1024)return n.toFixed(0)+' B';let u=['KB','MB','GB','TB'];n/=1024;let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(2)+' '+u[i]}
 function rate(v){return bytes(v)+'/s'}
-const statusApiUrl={{ url_for('api', _external=True)|tojson }};
+const statusApiUrl=window.location.origin+(window.location.pathname.replace(/\\/+$/,'')||'')+'/api/status';
 let liveRefreshBusy=false;
 async function refresh(){
  if(liveRefreshBusy)return;
  liveRefreshBusy=true;
  try{
-  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),4000);let r;try{r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json','Cache-Control':'no-cache'},signal:controller.signal})}finally{clearTimeout(timeout)}
+  const r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
   if(!r.ok)throw new Error('HTTP '+r.status);
   const contentType=r.headers.get('content-type')||'';
   if(!contentType.includes('application/json'))throw new Error('API returned non-JSON response (session or route issue)');
