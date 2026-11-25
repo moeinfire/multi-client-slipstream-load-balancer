@@ -943,7 +943,7 @@ def dns_scan_stop():
 @app.route('/')
 @require_login
 def index():
-    ts=tunnels();return render_template_string(HTML,logged=True,tunnels=ts,healthy=sum(x['health_state']=='connected' for x in ts),cooling=sum(x['health_state']=='cooldown' for x in ts),pmin=PMIN,pmax=PMAX,csrf=csrf_token(),lb_port=int(get_setting('lb_port',str(LB_DEFAULT_PORT))),lb_enabled=get_setting('lb_enabled','1')=='1',lb_backends=lb_backends(),global_resolvers=get_setting('global_resolvers','1.1.1.1:53'))
+    ts=tunnels();return render_template_string(HTML,logged=True,tunnels=ts,healthy=sum(x['health_state']=='connected' for x in ts),cooling=sum(x['health_state']=='cooldown' for x in ts),pmin=PMIN,pmax=PMAX,csrf=csrf_token(),lb_port=int(get_setting('lb_port',str(LB_DEFAULT_PORT))),lb_enabled=get_setting('lb_enabled','1')=='1',lb_allowed_ips=get_setting('lb_allowed_ips',''),lb_backends=lb_backends(),global_resolvers=get_setting('global_resolvers','1.1.1.1:53'))
 @app.post('/dns/global')
 @require_login
 def dns_global():
