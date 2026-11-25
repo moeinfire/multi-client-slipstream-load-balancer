@@ -124,7 +124,61 @@ function rate(v){return bytes(v)+'/s'}
 async function refresh(){try{let r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)return;let d=await r.json(),h=0,c=0;for(let t of d.tunnels){let e=document.getElementById('health-'+t.id);if(!e)continue;let rx=document.getElementById('rx-'+t.id),tx=document.getElementById('tx-'+t.id),tot=document.getElementById('total-'+t.id),sp=document.getElementById('speed-'+t.id);if(rx){rx.textContent=t.traffic_ready?bytes(t.rx):'نیازمند فعال‌سازی';tx.textContent=t.traffic_ready?bytes(t.tx):'نیازمند فعال‌سازی';tot.textContent=t.traffic_ready?bytes(t.rx+t.tx):'—';sp.textContent=t.traffic_ready?'سرعت دریافتی '+rate(t.rx_rate)+' · ارسالی '+rate(t.tx_rate):'حسابداری ترافیک هنوز فعال نشده'}let tm=document.getElementById('timer-'+t.id),de=document.getElementById('detail-'+t.id);e.className='pill '+(t.state==='connected'?'up':(t.state==='recovering'?'wait':'down'));e.textContent=t.state==='connected'?'● متصل':t.state==='cooldown'?'● قطع موقت':t.state==='recovering'?'● در حال اتصال':t.state==='manual'?'● توقف دستی':'● قطع شده';if(t.state==='connected')h++;if(t.state==='cooldown')c++;de.textContent=t.state==='cooldown'?'اتصال مجدد خودکار':t.state==='recovering'?'در حال بررسی اتصال':t.state==='connected'?'پیام connection ready دریافت شده':t.state==='manual'?'توقف توسط مدیر':'سرویس قطع است';tm.textContent=t.state==='cooldown'&&t.retry_at?'بازگشت در '+clock(t.retry_at-Date.now()/1000):'';document.getElementById('error-'+t.id).textContent=t.last_error||'';document.getElementById('fails-'+t.id).textContent=t.failure_count||0}document.getElementById('healthy').textContent=h;document.getElementById('cooling').textContent=c}catch(e){}}
 refresh();setInterval(refresh,5000);
 </script>
-{% endif %}</div></body></html>'''
+{% endif %}</div><style>
+#languageSwitch{position:fixed;z-index:99999;top:14px;right:16px;border:1px solid #49658a;border-radius:10px;padding:8px 13px;background:#172b46;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 5px 18px #0005}
+html[lang="en"] body{direction:ltr;text-align:left}
+html[lang="en"] th,html[lang="en"] td{text-align:left}
+html[lang="en"] .hint{border-right:0;border-left:3px solid #3c8de8}
+html[lang="en"] .domain,html[lang="en"] textarea{direction:ltr}
+html[lang="en"] .timer{direction:ltr}
+</style>
+<script>
+(()=> {
+ const exact={"ورود به پنل مدیریت":"Sign in to the control panel","رمز عبور":"Password","ورود":"Sign in","مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ":"Manage domains, multiple DNS resolvers, and monitor Slipstream connections from logs","اسکن DNS":"DNS Scanner","خروج":"Log out","کل تونل‌ها":"Total tunnels","متصل":"Connected","در انتظار اتصال مجدد":"Waiting to reconnect","محدوده پورت":"Port range","مدیریت DNS کلی":"Global DNS settings","ذخیره به‌عنوان DNS پیش‌فرض":"Save as default DNS","اعمال روی همه تونل‌ها":"Apply to all tunnels","افزودن دامنه":"Add domain","دامنه":"Domain","پورت محلی (اختیاری)":"Local port (optional)","خودکار":"Automatic","گواهی PEM (اختیاری)":"PEM certificate (optional)","افزودن و اجرای تونل":"Add and start tunnel","لودبالانسر SOCKS5":"SOCKS5 Load Balancer","پورت خروجی لودبالانسر":"Load balancer listening port","وضعیت":"Status","فعال — پورت خروجی در حال سرویس‌دهی است":"Enabled — listening port is active","غیرفعال":"Disabled","فعال‌سازی لودبالانسر":"Enable load balancer","ذخیره تنظیمات":"Save settings","تونل‌ها":"Tunnels","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","تعداد خطا:":"Failures:","دریافتی:":"Received:","ارسالی:":"Sent:","مجموع:":"Total:","سرعت: —":"Speed: —","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","توقف دستی":"Stop manually","شروع":"Start","ری‌استارت":"Restart","لاگ":"Logs","حذف":"Delete","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","منطق پایش سلامت":"Health monitoring logic","اجرای همه":"Start all","توقف همه":"Stop all","ری‌استارت همه فعال‌ها":"Restart all active","بازگشت به پنل":"Back to panel","تنظیم اسکن":"Scanner settings","دامنه Slipstream":"Slipstream domain","پورت DNS (برای همه IPها)":"DNS port (for all IPs)","تعداد اسکن هم‌زمان (Worker)":"Concurrent workers","مهلت تست هر DNS (ثانیه)":"Timeout per DNS (seconds)","نام کاربری SOCKS5 (برای اتصال اصلی)":"SOCKS5 username (for the upstream connection)","رمز عبور SOCKS5 (برای اتصال اصلی)":"SOCKS5 password (for the upstream connection)","مسیر گواهی PEM (اختیاری)":"PEM certificate path (optional)","دامنه مقصد تست":"Test destination domain","شروع اسکن دومرحله‌ای":"Start two-stage scan","توقف اسکن":"Stop scan","پیشرفت اسکن":"Scan progress","موفق":"Successful","ناموفق":"Failed","نتیجه":"Result","زمان":"Time","جزئیات":"Details","هنوز بررسی نشده است.":"Not tested yet.","مرتب‌سازی Latency: کم به زیاد":"Sort latency: low to high","کپی DNSهای نهایی":"Copy successful DNS","کپی DNSهای Ping موفق":"Copy Ping-successful DNS","انتخاب":"Select","اتصال HTTPS گوگل":"Google HTTPS connection","های نهایی سالم (تست کامل Google موفق)":"Successful DNS results (Google test passed)","هنوز نتیجه‌ای وجود ندارد.":"No results yet.","پاسخ داد":"Responded","متصل شد":"Connected"};
+ const parts={"کل تونل‌ها":"Total tunnels","تونل‌های حاضر در چرخه:":"Backends in rotation:","هیچ تونل سالمی موجود نیست":"No healthy tunnels available","آدرس ورودی:":"Endpoint:","هر اتصال جدید به روش Round Robin":"Each new connection is assigned using round-robin","متصل":"Connected","در انتظار":"Waiting","قطع شده":"Disconnected","توقف دستی":"Manually stopped","دریافتی":"Received","ارسالی":"Sent","مجموع":"Total","سرعت":"Speed","تعداد خطا":"Failures","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","شروع":"Start","ری‌استارت":"Restart","حذف":"Delete","لاگ":"Logs","دامنه":"Domain","DNSها":"DNS resolvers","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","هر ۱۰ ثانیه":"Every 10 seconds","منطق پایش سلامت":"Health monitoring logic","بازگشت به پنل":"Back to panel","مرحله اول: Ping DNSها":"Stage 1: Ping DNS resolvers","مرحله دوم: تست کامل تونل و HTTPS گوگل":"Stage 2: Full tunnel and Google HTTPS test","اسکن متوقف شد.":"Scan stopped.","اسکن دومرحله‌ای به پایان رسید.":"Two-stage scan completed.","هنوز اسکن شروع نشده است.":"Scan has not started yet.","ابتدا حداقل یک DNS را انتخاب کن.":"Select at least one DNS first.","شروع اسکن ناموفق بود":"Failed to start scan","خطا در ارتباط با پنل":"Panel connection error"};
+ const keys=Object.keys(parts).sort((a,b)=>b.length-a.length);
+ function translateText(value){
+   const raw=value; const trimmed=value.trim();
+   if(exact[trimmed]) return value.replace(trimmed,exact[trimmed]);
+   let out=value;
+   for(const key of keys) if(out.includes(key)) out=out.split(key).join(parts[key]);
+   return out;
+ }
+ function apply(lang){
+   const en=lang==='en';
+   document.documentElement.lang=en?'en':'fa';
+   document.documentElement.dir=en?'ltr':'rtl';
+   document.title=en?'Slipstream Manager':'Slipstream Manager';
+   document.querySelectorAll('body *').forEach(el=>{
+     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
+     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)n.nodeValue=en?translateText(n.nodeValue):n.__fa||n.nodeValue});
+     ['placeholder','title','aria-label'].forEach(attr=>{
+       if(!el.hasAttribute(attr))return;
+       if(en){if(!el.dataset['fa_'+attr])el.dataset['fa_'+attr]=el.getAttribute(attr);el.setAttribute(attr,translateText(el.getAttribute(attr)))}
+       else if(el.dataset['fa_'+attr])el.setAttribute(attr,el.dataset['fa_'+attr]);
+     });
+   });
+   const b=document.getElementById('languageSwitch');
+   if(b)b.textContent=en?'🇮🇷 فارسی':'🇬🇧 English';
+   document.documentElement.dataset.language=lang;
+   localStorage.setItem('slipstream-panel-language',lang);
+ }
+ const original=new WeakMap();
+ function scan(){
+   if(document.documentElement.dataset.language!=='en')return;
+   document.querySelectorAll('body *').forEach(el=>{
+     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE')return;
+     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE){if(!original.has(n))original.set(n,n.nodeValue);n.nodeValue=translateText(original.get(n))}});
+   });
+ }
+ const button=document.createElement('button');button.id='languageSwitch';button.type='button';
+ button.addEventListener('click',()=>apply(document.documentElement.dataset.language==='en'?'fa':'en'));
+ document.body.appendChild(button);
+ const saved=localStorage.getItem('slipstream-panel-language')||'fa';
+ apply(saved);
+ new MutationObserver(()=>scan()).observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
+</script></body></html>'''
 
 def db():
     os.makedirs(APP,exist_ok=True); c=sqlite3.connect(DB,timeout=10); c.row_factory=sqlite3.Row
@@ -500,6 +554,60 @@ function render(d){const p=d.ping_results||[],l=d.latency_results||[];$('pingGoo
 async function poll(){try{let r=await fetch('/api/dns-scan/status',{cache:'no-store'});if(!r.ok)return;let d=await r.json();render(d);if(!d.running&&timer){clearInterval(timer);timer=null}}catch(e){}}
 $('scanForm').addEventListener('submit',async e=>{e.preventDefault();selectedResolvers.clear();updateSelectedCount();let fd=new FormData();for(const [k,id] of Object.entries({csrf:'csrf',domain:'domain',dns_port:'dnsPort',workers:'workers',resolvers:'resolvers',cert:'cert',timeout:'timeout',socks_user:'socksUser',socks_pass:'socksPass'}))fd.append(k,$(id).value);$('startBtn').disabled=true;try{let r=await fetch('/api/dns-scan/start',{method:'POST',body:fd});let d=await r.json();if(!r.ok){alert(d.error||'شروع اسکن ناموفق بود');$('startBtn').disabled=false;return}render(d);if(timer)clearInterval(timer);timer=setInterval(poll,800)}catch(e){alert('خطا در ارتباط با پنل');$('startBtn').disabled=false}});
 $('stopBtn').addEventListener('click',async()=>{let fd=new FormData();fd.append('csrf',$('csrf').value);await fetch('/api/dns-scan/stop',{method:'POST',body:fd});poll()});$('latRows').addEventListener('change',e=>{if(!e.target.classList.contains('resolver-pick'))return;const ip=e.target.dataset.resolver;if(e.target.checked)selectedResolvers.add(ip);else selectedResolvers.delete(ip);updateSelectedCount()});$('sortLatencyBtn').addEventListener('click',()=>{latencyAscending=!latencyAscending;$('sortLatencyBtn').textContent=`مرتب‌سازی Latency: ${latencyAscending?'کم به زیاد':'زیاد به کم'}`;if(window.lastScan)render(window.lastScan)});async function copyText(v){try{await navigator.clipboard.writeText(v)}catch(e){let t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}}$('copyBtn').addEventListener('click',()=>copyText($('healthyList').value));$('copySelectedBtn').addEventListener('click',()=>{const values=[...selectedResolvers];if(!values.length){alert('ابتدا حداقل یک DNS را انتخاب کن.');return}copyText(values.join('\n'))});$('copyPingBtn').addEventListener('click',()=>copyText((window.lastPing||[]).filter(x=>x.ok).map(x=>x.resolver).join('\n')));const oldRender=render;render=function(d){window.lastPing=d.ping_results||[];window.lastScan=d;oldRender(d)};poll();
+</script><style>
+#languageSwitch{position:fixed;z-index:99999;top:14px;right:16px;border:1px solid #49658a;border-radius:10px;padding:8px 13px;background:#172b46;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 5px 18px #0005}
+html[lang="en"] body{direction:ltr;text-align:left}
+html[lang="en"] th,html[lang="en"] td{text-align:left}
+html[lang="en"] .hint{border-right:0;border-left:3px solid #3c8de8}
+html[lang="en"] .domain,html[lang="en"] textarea{direction:ltr}
+html[lang="en"] .timer{direction:ltr}
+</style>
+<script>
+(()=> {
+ const exact={"ورود به پنل مدیریت":"Sign in to the control panel","رمز عبور":"Password","ورود":"Sign in","مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ":"Manage domains, multiple DNS resolvers, and monitor Slipstream connections from logs","اسکن DNS":"DNS Scanner","خروج":"Log out","کل تونل‌ها":"Total tunnels","متصل":"Connected","در انتظار اتصال مجدد":"Waiting to reconnect","محدوده پورت":"Port range","مدیریت DNS کلی":"Global DNS settings","ذخیره به‌عنوان DNS پیش‌فرض":"Save as default DNS","اعمال روی همه تونل‌ها":"Apply to all tunnels","افزودن دامنه":"Add domain","دامنه":"Domain","پورت محلی (اختیاری)":"Local port (optional)","خودکار":"Automatic","گواهی PEM (اختیاری)":"PEM certificate (optional)","افزودن و اجرای تونل":"Add and start tunnel","لودبالانسر SOCKS5":"SOCKS5 Load Balancer","پورت خروجی لودبالانسر":"Load balancer listening port","وضعیت":"Status","فعال — پورت خروجی در حال سرویس‌دهی است":"Enabled — listening port is active","غیرفعال":"Disabled","فعال‌سازی لودبالانسر":"Enable load balancer","ذخیره تنظیمات":"Save settings","تونل‌ها":"Tunnels","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","تعداد خطا:":"Failures:","دریافتی:":"Received:","ارسالی:":"Sent:","مجموع:":"Total:","سرعت: —":"Speed: —","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","توقف دستی":"Stop manually","شروع":"Start","ری‌استارت":"Restart","لاگ":"Logs","حذف":"Delete","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","منطق پایش سلامت":"Health monitoring logic","اجرای همه":"Start all","توقف همه":"Stop all","ری‌استارت همه فعال‌ها":"Restart all active","بازگشت به پنل":"Back to panel","تنظیم اسکن":"Scanner settings","دامنه Slipstream":"Slipstream domain","پورت DNS (برای همه IPها)":"DNS port (for all IPs)","تعداد اسکن هم‌زمان (Worker)":"Concurrent workers","مهلت تست هر DNS (ثانیه)":"Timeout per DNS (seconds)","نام کاربری SOCKS5 (برای اتصال اصلی)":"SOCKS5 username (for the upstream connection)","رمز عبور SOCKS5 (برای اتصال اصلی)":"SOCKS5 password (for the upstream connection)","مسیر گواهی PEM (اختیاری)":"PEM certificate path (optional)","دامنه مقصد تست":"Test destination domain","شروع اسکن دومرحله‌ای":"Start two-stage scan","توقف اسکن":"Stop scan","پیشرفت اسکن":"Scan progress","موفق":"Successful","ناموفق":"Failed","نتیجه":"Result","زمان":"Time","جزئیات":"Details","هنوز بررسی نشده است.":"Not tested yet.","مرتب‌سازی Latency: کم به زیاد":"Sort latency: low to high","کپی DNSهای نهایی":"Copy successful DNS","کپی DNSهای Ping موفق":"Copy Ping-successful DNS","انتخاب":"Select","اتصال HTTPS گوگل":"Google HTTPS connection","های نهایی سالم (تست کامل Google موفق)":"Successful DNS results (Google test passed)","هنوز نتیجه‌ای وجود ندارد.":"No results yet.","پاسخ داد":"Responded","متصل شد":"Connected"};
+ const parts={"کل تونل‌ها":"Total tunnels","تونل‌های حاضر در چرخه:":"Backends in rotation:","هیچ تونل سالمی موجود نیست":"No healthy tunnels available","آدرس ورودی:":"Endpoint:","هر اتصال جدید به روش Round Robin":"Each new connection is assigned using round-robin","متصل":"Connected","در انتظار":"Waiting","قطع شده":"Disconnected","توقف دستی":"Manually stopped","دریافتی":"Received","ارسالی":"Sent","مجموع":"Total","سرعت":"Speed","تعداد خطا":"Failures","ریست حجم":"Reset traffic","ذخیره DNSها":"Save DNS","شروع":"Start","ری‌استارت":"Restart","حذف":"Delete","لاگ":"Logs","دامنه":"Domain","DNSها":"DNS resolvers","پورت محلی":"Local port","سلامت":"Health","حجم ترافیک":"Traffic","ویرایش DNS":"Edit DNS","عملیات":"Actions","هنوز دامنه‌ای ثبت نشده است.":"No domains have been added yet.","هر ۱۰ ثانیه":"Every 10 seconds","منطق پایش سلامت":"Health monitoring logic","بازگشت به پنل":"Back to panel","مرحله اول: Ping DNSها":"Stage 1: Ping DNS resolvers","مرحله دوم: تست کامل تونل و HTTPS گوگل":"Stage 2: Full tunnel and Google HTTPS test","اسکن متوقف شد.":"Scan stopped.","اسکن دومرحله‌ای به پایان رسید.":"Two-stage scan completed.","هنوز اسکن شروع نشده است.":"Scan has not started yet.","ابتدا حداقل یک DNS را انتخاب کن.":"Select at least one DNS first.","شروع اسکن ناموفق بود":"Failed to start scan","خطا در ارتباط با پنل":"Panel connection error"};
+ const keys=Object.keys(parts).sort((a,b)=>b.length-a.length);
+ function translateText(value){
+   const raw=value; const trimmed=value.trim();
+   if(exact[trimmed]) return value.replace(trimmed,exact[trimmed]);
+   let out=value;
+   for(const key of keys) if(out.includes(key)) out=out.split(key).join(parts[key]);
+   return out;
+ }
+ function apply(lang){
+   const en=lang==='en';
+   document.documentElement.lang=en?'en':'fa';
+   document.documentElement.dir=en?'ltr':'rtl';
+   document.title=en?'Slipstream Manager':'Slipstream Manager';
+   document.querySelectorAll('body *').forEach(el=>{
+     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE') return;
+     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE)n.nodeValue=en?translateText(n.nodeValue):n.__fa||n.nodeValue});
+     ['placeholder','title','aria-label'].forEach(attr=>{
+       if(!el.hasAttribute(attr))return;
+       if(en){if(!el.dataset['fa_'+attr])el.dataset['fa_'+attr]=el.getAttribute(attr);el.setAttribute(attr,translateText(el.getAttribute(attr)))}
+       else if(el.dataset['fa_'+attr])el.setAttribute(attr,el.dataset['fa_'+attr]);
+     });
+   });
+   const b=document.getElementById('languageSwitch');
+   if(b)b.textContent=en?'🇮🇷 فارسی':'🇬🇧 English';
+   document.documentElement.dataset.language=lang;
+   localStorage.setItem('slipstream-panel-language',lang);
+ }
+ const original=new WeakMap();
+ function scan(){
+   if(document.documentElement.dataset.language!=='en')return;
+   document.querySelectorAll('body *').forEach(el=>{
+     if(el.id==='languageSwitch'||el.tagName==='SCRIPT'||el.tagName==='STYLE')return;
+     el.childNodes.forEach(n=>{if(n.nodeType===Node.TEXT_NODE){if(!original.has(n))original.set(n,n.nodeValue);n.nodeValue=translateText(original.get(n))}});
+   });
+ }
+ const button=document.createElement('button');button.id='languageSwitch';button.type='button';
+ button.addEventListener('click',()=>apply(document.documentElement.dataset.language==='en'?'fa':'en'));
+ document.body.appendChild(button);
+ const saved=localStorage.getItem('slipstream-panel-language')||'fa';
+ apply(saved);
+ new MutationObserver(()=>scan()).observe(document.body,{childList:true,subtree:true,characterData:true});
+})();
 </script></body></html>''' 
 
 def _dns_scan_snapshot():
