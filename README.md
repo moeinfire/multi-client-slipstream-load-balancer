@@ -1,14 +1,10 @@
 # Multi-Client Slipstream Panel with Load Balancer & DNS Scanner
 
 <p align="center">
-  <a href="#english">🇬🇧 English</a> · <a href="#فارسی">🇮🇷 فارسی</a>
+  <strong>🇬🇧 English</strong> · <a href="README.fa.md">🇮🇷 فارسی</a>
 </p>
 
 <img width="1408" height="768" alt="Slipstream Panel screenshot" src="https://github.com/user-attachments/assets/fed4fb2d-00fa-4fb8-a1ee-730c54b16757" />
-
-<a id="english"></a>
-<details open>
-<summary><strong>🇬🇧 English</strong></summary>
 
 A self-hosted web panel for running, monitoring, and managing multiple Slipstream client tunnels on Linux servers.
 
@@ -62,68 +58,7 @@ The uninstaller removes the panel service, matching project-generated tunnel ser
 ### 📄 License
 MIT License
 
-</details>
-
-<a id="فارسی"></a>
-<details>
-<summary><strong>🇮🇷 فارسی</strong></summary>
-
-یک پنل مدیریتی تحت وب و قابل میزبانی روی سرور شخصی برای راه‌اندازی، نظارت و مدیریت چندین تونل Slipstream Client در سرورهای لینوکسی.
-
-### ✨ امکانات
-- **مدیریت تونل‌ها:** افزودن، پیکربندی، شروع، توقف، راه‌اندازی مجدد، حذف و نظارت بر چندین تونل Slipstream.
-- **یکپارچگی با systemd:** ساخت و مدیریت خودکار یک سرویس systemd مجزا برای هر تونل.
-- **مدیریت DNS:** تنظیم چند DNS Resolver برای هر تونل، تعیین DNS پیش‌فرض سراسری یا اعمال تنظیمات روی تمام تونل‌های موجود. پشتیبانی از فرمت `IP:PORT`.
-- **اسکنر پیشرفته DNS:** آزمایش دومرحله‌ای شامل Ping از نوع ICMP و تست کامل تونل Slipstream، احراز هویت Username/Password در SOCKS5، بررسی HTTPS گوگل، اعتبارسنجی TLS، بررسی پاسخ HTTP 204، اندازه‌گیری تأخیر، تنظیم تعداد Worker و انتخاب نتایج.
-- **لودبالانسر SOCKS5:** توزیع اتصال‌ها با روش Round Robin بین تونل‌های سالم و فعال، خارج کردن خودکار تونل‌های ناسالم از چرخه، بازگرداندن تونل پس از زمان بازیابی و انتقال احراز هویت SOCKS5.
-- **پایش ترافیک:** نمایش ترافیک ورودی و خروجی هر تونل، حجم کل، سرعت تقریبی و امکان صفر کردن شمارنده ترافیک. مبتنی بر قابلیت IP Accounting در systemd برای هر سرویس.
-- **پایش سلامت اتصال:** تشخیص پیام‌های connection ready، connection closed و client error؛ نمایش خطاها؛ در نظر گرفتن مهلت بازیابی و راه‌اندازی مجدد خودکار تونل‌های خراب پس از زمان انتظار.
-- **لاگ و امنیت:** مشاهده لاگ اختصاصی هر تونل، پنل محافظت‌شده با رمز عبور، محافظت CSRF و ذخیره‌سازی جداگانه تنظیمات و اطلاعات محرمانه برنامه.
-- **نصب و به‌روزرسانی:** اسکریپت‌های نصب و به‌روزرسانی برای سیستم‌های مبتنی بر Ubuntu و Debian.
-
-### 🧰 پیش‌نیازها
-- سرور لینوکسی مبتنی بر Ubuntu یا Debian.
-- دسترسی Root یا Sudo.
-- Python 3 و Flask.
-- فایل اجرایی Slipstream Client داخل مخزن قرار دارد و به‌صورت خودکار نصب می‌شود.
-
-### 🚀 نصب سریع
-
-با کاربر Root وارد سرور شوید (در صورت نیاز `sudo -i` را اجرا کنید). نیازی به نصب Git نیست:
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install-online.sh)
-```
-
-نصب‌کننده آنلاین آخرین آرشیو شاخه `master` را دریافت و نصب می‌کند. برای دریافت دستور به `curl` نیاز دارد و در صورت امکان ابزارهای دانلود موردنیاز دیگر را نیز نصب می‌کند.
-
-### 🗑️ حذف کامل
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh)
-```
-
-اسکریپت حذف پیش از انجام عملیات از شما می‌خواهد عبارت `REMOVE` را وارد کنید. برای رد کردن مرحله تأیید:
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh) --yes
-```
-
-اسکریپت حذف، سرویس پنل، سرویس‌های تونل ساخته‌شده توسط پروژه، فایل‌های برنامه، پایگاه داده، اطلاعات ورود و تنظیمات، لاگ‌های پروژه و فایل اجرایی Slipstream ثبت‌شده توسط نصب‌کننده را حذف می‌کند. فایل‌های گواهی خارجی، قوانین فایروال، سرویس‌های نامرتبط و بسته‌های سراسری سیستم (از جمله Python و Flask) دست‌نخورده باقی می‌مانند. حساب و گروه اختصاصی `slipstream` فقط در صورتی حذف می‌شوند که متعلق به همین نصب‌کننده باشند و در حال استفاده نباشند.
-
-### ⚠️ نکات مهم
-- تنظیمات تونل‌ها و سرویس‌های systemd تولیدشده روی سرور ایجاد می‌شوند و داخل مخزن قرار ندارند.
-- دامنه‌ها، DNS Resolverها، گواهی‌ها و تنظیمات تونل را باید خودتان پیکربندی کنید.
-- پنل را بدون محدودیت دسترسی مناسب و HTTPS مستقیماً در اینترنت عمومی قرار ندهید.
-- پیش از استفاده عملیاتی، کد منبع و تنظیمات امنیتی را بررسی کنید.
-
-### 📄 مجوز
-MIT License
-
-</details>
 
 ---
 
-<p align="center">
-  <a href="#english">🇬🇧 English</a> · <a href="#فارسی">🇮🇷 فارسی</a> · <a href="#multi-client-slipstream-panel-with-load-balancer--dns-scanner">⬆ Back to top</a>
-</p>
+<p align="center">🇬🇧 English · <a href="README.fa.md">🇮🇷 فارسی</a> · <a href="#multi-client-slipstream-panel-with-load-balancer--dns-scanner">⬆ Back to top</a></p>
