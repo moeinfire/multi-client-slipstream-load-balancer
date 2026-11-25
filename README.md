@@ -65,7 +65,7 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Temporarily exclude unhealthy or unreachable tunnels.
 - Reintroduce recovered tunnels after the cooldown period.
 - Accept SOCKS5 clients without a username or password when their source IP is allowlisted.
-- Keep each tunnel's remote SOCKS5 username/password independent and authenticate to the remote proxy inside the gateway.
+- Support both authentication modes: use the credentials configured in the panel, or leave them empty and forward the external client's SOCKS5 username/password to the remote proxy.
 - Configure trusted IPv4/IPv6 addresses or CIDR ranges for passwordless load-balancer access; an empty allowlist denies all clients.
 
 ### 📊 Traffic Monitoring
@@ -202,7 +202,7 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - خارج کردن موقت تونل‌های ناسالم یا غیرقابل دسترس از چرخه.
 - بازگرداندن تونل‌های بازیابی‌شده پس از پایان زمان Cooldown.
 - اتصال کلاینت‌های SOCKS5 بدون Username و Password، فقط در صورت قرار داشتن IP مبدأ در فهرست مجاز.
-- مستقل ماندن نام کاربری و رمز SOCKS5 هر تونل برای احراز هویت در پراکسی سمت سرور خارجی.
+- پشتیبانی از هر دو حالت احراز هویت: استفاده از نام کاربری و رمز ثبت‌شده در پنل، یا خالی گذاشتن آن‌ها و انتقال اطلاعات ورود کلاینت خارجی SOCKS5 به پراکسی مقصد.
 - پشتیبانی از IPهای IPv4/IPv6 و محدوده‌های CIDR برای دسترسی بدون رمز؛ فهرست خالی تمام اتصال‌ها را رد می‌کند.
 
 ### 📊 پایش ترافیک
