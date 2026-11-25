@@ -384,17 +384,33 @@ class LBHandler(socketserver.BaseRequestHandler):
                 lb_send_failure(client,1)
                 return
             if selected[1]==2:
-                if tunnel_has_credentials:
+                if backend['auth_enabled']:
+                    # This backend is a panel SOCKS5 auth gateway. Validate the
+                    # Sanaei client's credentials against that tunnel's own
+                    # inbound account, then authenticate to the gateway with it.
+                    expected_user=(backend['auth_username'] or '').encode('utf-8')
+                    expected_pass=(backend['auth_password'] or '').encode('utf-8')
+                    if (not client_username or not client_password or
+                        not hmac.compare_digest(client_username,expected_user) or
+                        not hmac.compare_digest(client_password,expected_pass)):
+                        client.sendall(b'\x01\x01')
+                        return
+                    backend_user=expected_user
+                    backend_pass=expected_pass
+                elif tunnel_has_credentials:
                     backend_username=backend['upstream_username'] or ''
                     backend_password=backend['upstream_password'] or ''
+                    backend_user=backend_username.encode('utf-8')
+                    backend_pass=backend_password.encode('utf-8')
                 elif lb_has_credentials:
-                    backend_username=lb_username
-                    backend_password=lb_password
+                    backend_user=lb_username.encode('utf-8')
+                    backend_pass=lb_password.encode('utf-8')
                 else:
-                    backend_username=client_username.decode('utf-8')
-                    backend_password=client_password.decode('utf-8')
-                backend_user=backend_username.encode('utf-8')
-                backend_pass=backend_password.encode('utf-8')
+                    if not client_username or not client_password:
+                        lb_send_failure(client,1)
+                        return
+                    backend_user=client_username
+                    backend_pass=client_password
                 if not (1<=len(backend_user)<=255 and 1<=len(backend_pass)<=255):
                     lb_send_failure(client,1)
                     return
