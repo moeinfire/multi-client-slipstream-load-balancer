@@ -87,20 +87,6 @@ class Gateway:
         upstream = None
         client.settimeout(30)
         try:
-            # The panel Load Balancer connects from loopback. Transparently
-            # pass its traffic to the private Slipstream port so its existing
-            # authentication and routing behavior remains unchanged.
-            peer = client.getpeername()[0]
-            if self.cfg.get("bypass_loopback") and peer in ("127.0.0.1", "::1"):
-                upstream = socket.create_connection(
-                    (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
-                    timeout=15
-                )
-                upstream.settimeout(120)
-                client.settimeout(120)
-                relay(client, upstream)
-                return
-
             greeting = recv_exact(client, 2)
             if greeting[0] != 5 or greeting[1] < 1:
                 return
