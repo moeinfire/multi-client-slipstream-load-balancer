@@ -343,9 +343,6 @@ class LBHandler(socketserver.BaseRequestHandler):
         client_ip=self.client_address[0]
         ip_allowed=lb_client_allowed(client_ip)
         lb_auth=get_setting('lb_auth_enabled','0')=='1'
-        if not ip_allowed and not lb_auth:
-            print(f'[load-balancer] rejected client outside allowlist: {client_ip}',flush=True)
-            return
         try:
             client.settimeout(30)
             greeting=lb_recv_exact(client,2)
@@ -353,17 +350,36 @@ class LBHandler(socketserver.BaseRequestHandler):
                 return
             methods=lb_recv_exact(client,greeting[1])
 
-            # Trusted IPs retain the existing no-auth bypass. Other clients
-            # must authenticate with the independent load-balancer account.
-            if ip_allowed:
-                if 0 not in methods:
+            # Load-balancer authentication is independent from backend
+            # tunnel authentication. When disabled, accept standard NoAuth
+            # clients and also tolerate clients (e.g. some outbound profiles)
+            # that offer only RFC1929; credentials are ignored in this mode.
+            # When enabled, non-allowlisted clients must pass the LB account.
+            if not lb_auth:
+                if 0 in methods:
+                    client.sendall(b'\x05\x00')
+                elif 2 in methods:
+                    client.sendall(b'\x05\x02')
+                    if lb_recv_exact(client,1)!=b'\x01':
+                        return
+                    ulen=lb_recv_exact(client,1)[0]
+                    if not ulen:
+                        client.sendall(b'\x01\x01')
+                        return
+                    lb_recv_exact(client,ulen)
+                    plen=lb_recv_exact(client,1)[0]
+                    if not plen:
+                        client.sendall(b'\x01\x01')
+                        return
+                    lb_recv_exact(client,plen)
+                    client.sendall(b'\x01\x00')
+                else:
                     client.sendall(b'\x05\xff')
                     return
+            elif ip_allowed and 0 in methods:
+                # Explicitly allowlisted clients may bypass LB authentication.
                 client.sendall(b'\x05\x00')
-            else:
-                if 2 not in methods:
-                    client.sendall(b'\x05\xff')
-                    return
+            elif 2 in methods:
                 client.sendall(b'\x05\x02')
                 if lb_recv_exact(client,1)!=b'\x01':
                     return
@@ -386,6 +402,9 @@ class LBHandler(socketserver.BaseRequestHandler):
                     print(f'[load-balancer] authentication failed for {client_ip}',flush=True)
                     return
                 client.sendall(b'\x01\x00')
+            else:
+                client.sendall(b'\x05\xff')
+                return
 
             picked=choose_backend()
             if not picked:
