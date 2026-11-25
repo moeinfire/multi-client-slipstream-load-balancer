@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Per-tunnel SOCKS5 gateway with local RFC1929 auth and Slipstream relay."""
-import hmac
+"""SOCKS5 gateway: trusted no-auth client ingress, authenticated remote egress."""
 import json
 import select
 import socket
@@ -24,9 +23,9 @@ def read_request(sock):
         raise ValueError("invalid SOCKS version")
     atyp = head[3]
     if atyp == 1:
-        tail = recv_exact(sock, 4 + 2)
+        tail = recv_exact(sock, 6)
     elif atyp == 4:
-        tail = recv_exact(sock, 16 + 2)
+        tail = recv_exact(sock, 18)
     elif atyp == 3:
         size = recv_exact(sock, 1)
         tail = size + recv_exact(sock, size[0] + 2)
@@ -42,12 +41,14 @@ def failure_reply():
 class Gateway:
     def __init__(self, config):
         self.cfg = config
-        self.auth = bool(config.get("auth_enabled"))
         self.username = config.get("username", "").encode("utf-8")
         self.password = config.get("password", "").encode("utf-8")
-        if self.auth and (not self.username or not self.password or
-                          len(self.username) > 255 or len(self.password) > 255):
-            raise ValueError("invalid SOCKS5 credentials in gateway config")
+        self.upstream_auth = bool(config.get("auth_enabled"))
+        if self.upstream_auth and (
+            not self.username or not self.password or
+            len(self.username) > 255 or len(self.password) > 255
+        ):
+            raise ValueError("invalid upstream SOCKS5 credentials in gateway config")
 
     def handle(self, client):
         upstream = None
@@ -57,48 +58,35 @@ class Gateway:
             if greeting[0] != 5 or greeting[1] == 0:
                 return
             methods = recv_exact(client, greeting[1])
-            required = 2 if self.auth else 0
-            if required not in methods:
+            if 0 not in methods:
                 client.sendall(b"\x05\xff")
                 return
 
-            # Verify that the far-end SOCKS5 endpoint supports the same mode
-            # before telling the local client that a method was selected.
             upstream = socket.create_connection(
                 (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
                 timeout=15
             )
             upstream.settimeout(30)
-            upstream.sendall(bytes((5, 1, required)))
-            if recv_exact(upstream, 2) != bytes((5, required)):
+
+            # Negotiate independently with the remote SOCKS5 server.
+            method = 2 if self.upstream_auth else 0
+            upstream.sendall(bytes((5, 1, method)))
+            if recv_exact(upstream, 2) != bytes((5, method)):
                 client.sendall(b"\x05\xff")
                 return
-            client.sendall(bytes((5, required)))
 
-            if self.auth:
-                version = recv_exact(client, 1)
-                if version != b"\x01":
-                    return
-                ulen = recv_exact(client, 1)[0]
-                user = recv_exact(client, ulen)
-                plen = recv_exact(client, 1)[0]
-                password = recv_exact(client, plen)
-                valid = (hmac.compare_digest(user, self.username) and
-                         hmac.compare_digest(password, self.password))
-                if not valid:
-                    client.sendall(b"\x01\x01")
-                    return
+            # The client never needs the remote server's credentials.
+            client.sendall(b"\x05\x00")
+
+            if self.upstream_auth:
                 upstream.sendall(
                     b"\x01" + bytes((len(self.username),)) + self.username +
                     bytes((len(self.password),)) + self.password
                 )
                 if recv_exact(upstream, 2) != b"\x01\x00":
-                    client.sendall(b"\x01\x01")
+                    client.sendall(failure_reply())
                     return
-                client.sendall(b"\x01\x00")
 
-            # Read and forward one complete SOCKS request; TCP recv() is not
-            # guaranteed to return the entire request in a single call.
             request = read_request(client)
             upstream.sendall(request)
 
