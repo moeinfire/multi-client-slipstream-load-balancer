@@ -353,18 +353,17 @@ class LBHandler(socketserver.BaseRequestHandler):
                 return
             methods=lb_recv_exact(client,greeting[1])
 
-            # When public LB authentication is disabled, accept ordinary
-            # no-auth SOCKS5 clients from any IP. Tunnel credentials remain
-            # server-side and are injected below when the selected backend
-            # requires authentication.
-            if not lb_auth:
+            # Trusted IPs retain the existing no-auth bypass. Other clients
+            # must authenticate with the independent load-balancer account.
+            if ip_allowed:
                 if 0 not in methods:
                     client.sendall(b'\x05\xff')
                     return
                 client.sendall(b'\x05\x00')
-            elif 2 in methods:
-                # Prefer username/password whenever the client offers it.
-                # This also lets allowlisted clients explicitly authenticate.
+            else:
+                if 2 not in methods:
+                    client.sendall(b'\x05\xff')
+                    return
                 client.sendall(b'\x05\x02')
                 if lb_recv_exact(client,1)!=b'\x01':
                     return
@@ -387,11 +386,6 @@ class LBHandler(socketserver.BaseRequestHandler):
                     print(f'[load-balancer] authentication failed for {client_ip}',flush=True)
                     return
                 client.sendall(b'\x01\x00')
-            elif ip_allowed and 0 in methods:
-                client.sendall(b'\x05\x00')
-            else:
-                client.sendall(b'\x05\xff')
-                return
 
             picked=choose_backend()
             if not picked:
@@ -557,8 +551,12 @@ def read_new_log_lines(r):
         return []
 
 def make_unit(r, reload_systemd=True):
-    # Keep Slipstream private; the companion SOCKS gateway owns the public port.
-    internal_port=int(r['port'])+20000
+    # With per-tunnel auth enabled, Slipstream listens privately and the
+    # SOCKS gateway validates/injects credentials. With auth disabled,
+    # remove the gateway entirely and let Slipstream expose the SOCKS port.
+    auth_enabled=bool(r['auth_enabled'])
+    public_port=int(r['port'])
+    internal_port=public_port+20000 if auth_enabled else public_port
     args=[BIN,'--domain',r['domain']]
     for dns in parse_resolvers(r['resolver']):args += ['--resolver',dns]
     args += ['--tcp-listen-host',LOCAL_HOST,'--tcp-listen-port',str(internal_port)]
@@ -571,17 +569,32 @@ def make_unit(r, reload_systemd=True):
     with open(lp,'a',encoding='utf-8'):pass
     os.chown(lp,u.pw_uid,u.pw_gid);os.chmod(lp,0o640)
     auth_unit=f'slipstream-auth-{r["id"]}'
-    lines=['[Unit]',f'Description=Slipstream client {r["domain"]}','After=network-online.target','Wants=network-online.target',f'Wants={auth_unit}.service','','[Service]','Type=simple','User=slipstream','Group=slipstream','ExecStart='+' '.join(shlex.quote(x) for x in args),'Restart=no','IPAccounting=yes',f'StandardOutput=append:{lp}','StandardError=inherit','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={LOGDIR}','','[Install]','WantedBy=multi-user.target','']
-    with open(f'/etc/systemd/system/{unit(r["id"])}.service','w') as f:f.write('\n'.join(lines))
-    os.chmod(f'/etc/systemd/system/{unit(r["id"])}.service',0o644)
-    cfgdir='/etc/slipstream-panel/tunnels';os.makedirs(cfgdir,mode=0o700,exist_ok=True);os.chmod(cfgdir,0o700)
+    lines=['[Unit]',f'Description=Slipstream client {r["domain"]}','After=network-online.target','Wants=network-online.target']
+    if auth_enabled:
+        lines += [f'Wants={auth_unit}.service']
+    lines += ['','[Service]','Type=simple','User=slipstream','Group=slipstream','ExecStart='+' '.join(shlex.quote(x) for x in args),'Restart=no','IPAccounting=yes',f'StandardOutput=append:{lp}','StandardError=inherit','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={LOGDIR}','','[Install]','WantedBy=multi-user.target','']
+    service_path=f'/etc/systemd/system/{unit(r["id"])}.service'
+    with open(service_path,'w') as f:f.write('\n'.join(lines))
+    os.chmod(service_path,0o644)
+
+    cfgdir='/etc/slipstream-panel/tunnels'
     cfg=os.path.join(cfgdir,str(r['id'])+'.json')
-    with open(cfg,'w',encoding='utf-8') as f:
-        json.dump({'listen_host':LOCAL_HOST,'listen_port':int(r['port']),'upstream_host':LOCAL_HOST,'upstream_port':internal_port,'auth_enabled':bool(r['auth_enabled']),'username':r['auth_username'] or '','password':r['auth_password'] or ''},f)
-    os.chmod(cfg,0o600)
-    gateway=['[Unit]',f'Description=SOCKS5 authentication gateway for {r["domain"]}',f'After={unit(r["id"])}.service',f'PartOf={unit(r["id"])}.service','','[Service]','Type=simple','IPAccounting=yes',f'ExecStart=/usr/bin/python3 /opt/slipstream-panel/socks5-gateway.py {cfg}','Restart=always','RestartSec=2','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={cfgdir}','','[Install]','WantedBy=multi-user.target','']
-    with open(f'/etc/systemd/system/{auth_unit}.service','w') as f:f.write('\n'.join(gateway))
-    os.chmod(f'/etc/systemd/system/{auth_unit}.service',0o644)
+    gateway_path=f'/etc/systemd/system/{auth_unit}.service'
+    if auth_enabled:
+        os.makedirs(cfgdir,mode=0o700,exist_ok=True);os.chmod(cfgdir,0o700)
+        with open(cfg,'w',encoding='utf-8') as f:
+            json.dump({'listen_host':LOCAL_HOST,'listen_port':public_port,'upstream_host':LOCAL_HOST,'upstream_port':internal_port,'auth_enabled':True,'username':r['auth_username'] or '','password':r['auth_password'] or ''},f)
+        os.chmod(cfg,0o600)
+        gateway=['[Unit]',f'Description=SOCKS5 authentication gateway for {r["domain"]}',f'After={unit(r["id"])}.service',f'PartOf={unit(r["id"])}.service','','[Service]','Type=simple','IPAccounting=yes',f'ExecStart=/usr/bin/python3 /opt/slipstream-panel/socks5-gateway.py {cfg}','Restart=always','RestartSec=2','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={cfgdir}','','[Install]','WantedBy=multi-user.target','']
+        with open(gateway_path,'w') as f:f.write('\n'.join(gateway))
+        os.chmod(gateway_path,0o644)
+    else:
+        # Stop and remove any previously installed gateway so no extra
+        # SOCKS auth layer remains in the connection path.
+        ctl('disable','--now',auth_unit)
+        for path in (gateway_path,cfg):
+            try:os.remove(path)
+            except FileNotFoundError:pass
     if reload_systemd:ctl('daemon-reload')
 
 def start(r):
