@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Support both local installation and one-command online installation.
 # If this script was launched remotely, download the project source and re-run
 # this same installer from the extracted archive.
-if [[ ! -f "$SCRIPT_DIR/app.py" || ! -f "$SCRIPT_DIR/slip-manager.py" ]]; then
+if [[ ! -f "$SCRIPT_DIR/app.py" ]]; then
   if ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
     echo "Installing required download tools..."
     apt-get update
@@ -40,7 +40,7 @@ if [[ ! -f "$SCRIPT_DIR/app.py" || ! -f "$SCRIPT_DIR/slip-manager.py" ]]; then
   echo "Extracting project files..."
   tar -xzf "$ARCHIVE" --strip-components=1 -C "$SOURCE_DIR"
 
-  for file in install.sh app.py slip-manager.py; do
+  for file in install.sh app.py; do
     if [[ ! -f "$SOURCE_DIR/$file" ]]; then
       echo "ERROR: Required project file is missing from the downloaded archive: $file"
       exit 1
@@ -182,37 +182,6 @@ PY
 
 download_slipstream_binary
 
-# Install the standalone Slipstream manager.
-install -m 0750 "$SCRIPT_DIR/slip-manager.py" "$APP/slip-manager.py"
-install -d -m 0755 /etc/systemd/system
-install -d -m 0755 /var/log/slipstream
-
-# Generate the standalone systemd unit directly from this installer.
-cat > /etc/systemd/system/slip.service <<'EOF_SLIP_UNIT'
-[Unit]
-Description=Slipstream Standalone Manager
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-Environment=SLIPSTREAM_BIN=/usr/local/bin/slipstream-client
-Environment=SLIPSTREAM_RESOLVER=8.8.8.8:53
-Environment=SLIPSTREAM_TARGETS=r.2222.ir:20817
-Environment=SLIPSTREAM_LOGDIR=/var/log/slipstream
-ExecStart=/usr/bin/python3 -u /opt/slipstream-panel/slip-manager.py
-Restart=always
-RestartSec=5
-KillSignal=SIGTERM
-TimeoutStopSec=15
-User=root
-WorkingDirectory=/opt/slipstream-panel
-
-[Install]
-WantedBy=multi-user.target
-EOF_SLIP_UNIT
-chmod 0644 /etc/systemd/system/slip.service
-
 chown -R root:root "$APP"
 printf '%s' "$PANEL_PORT" > "$CONF/panel.port"
 printf '/%s' "$PANEL_PATH" > "$CONF/base-path"
@@ -250,19 +219,6 @@ EOF2
 systemctl daemon-reload
 systemctl enable slipstream-panel
 systemctl restart slipstream-panel || systemctl start slipstream-panel
-
-if [[ "${SLIPSTREAM_ENABLE_STANDALONE:-0}" == "1" ]]; then
-  if [[ -x "$BIN" ]]; then
-    systemctl enable --now slip.service
-    echo "Standalone Slipstream service enabled and started. Review its target in slip.service first."
-  else
-    echo "ERROR: standalone service requested, but $BIN is missing or not executable."
-    exit 1
-  fi
-else
-  echo "Standalone slip.service was installed but left disabled; the panel does not require it."
-  echo "Review /etc/systemd/system/slip.service and its target before enabling it manually."
-fi
 
 echo
 echo "Slipstream Panel installed."
