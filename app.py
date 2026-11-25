@@ -621,7 +621,7 @@ def make_unit(r, reload_systemd=True):
 @contextmanager
 def tunnel_mutation_lock():
     # Thread lock plus flock protects against concurrent requests and multiple WSGI workers.
-    with tunnel_mutation_lock():
+    with TUNNEL_MUTATION_LOCK:
         os.makedirs(APP,exist_ok=True)
         fd=os.open(APP+'/tunnel-mutations.lock',os.O_CREAT|os.O_RDWR,0o600)
         try:
@@ -686,7 +686,7 @@ def _restore_tunnel_snapshot(snapshot):
 
 def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=False):
     # Serialize all tunnel mutations across requests and worker threads.
-    with TUNNEL_MUTATION_LOCK:
+    with tunnel_mutation_lock():
         c=db();old=c.execute('SELECT * FROM tunnels WHERE id=?',(int(tunnel_id),)).fetchone();c.close()
         if not old:raise LookupError('Tunnel not found')
         snapshot=dict(old);old_id=int(snapshot['id']);port=int(snapshot['port'])
@@ -763,7 +763,7 @@ def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=Fals
             raise RuntimeError(message) from error
 
 def delete_tunnel_fully(tunnel_id):
-    with TUNNEL_MUTATION_LOCK:
+    with tunnel_mutation_lock():
         c=db();row=c.execute('SELECT * FROM tunnels WHERE id=?',(int(tunnel_id),)).fetchone();c.close()
         if not row:raise LookupError('Tunnel not found')
         snapshot=dict(row);_remove_tunnel_runtime(snapshot)
