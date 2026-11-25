@@ -21,6 +21,7 @@ LB_SERVER=None
 LB_SERVER_PORT=None
 LB_QUARANTINED={}
 LB_RR_INDEX=0
+TUNNEL_MUTATION_LOCK=threading.RLock()
 DNS_SCAN_LOCK=threading.RLock()
 DNS_SCAN_TEST_HOST='www.google.com'
 DNS_SCAN_STATE={"running":False,"cancel":False,"domain":"","phase":"idle","workers":1,"ping_total":0,"ping_done":0,"latency_total":0,"latency_done":0,"ping_results":[],"latency_results":[],"started_at":None}
@@ -56,6 +57,7 @@ def apply_panel_base_path(response):
             response.set_data(body)
     return response
 PASSWORD=open('/etc/slipstream-panel/admin.password').read().strip()
+API_TOKEN=os.environ.get('SLIPSTREAM_API_TOKEN','').strip() or PASSWORD
 
 HTML=r'''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slipstream Manager</title><style>
 :root{color-scheme:dark;--bg:#080f1e;--surface:#111d31;--surface2:#0c1729;--line:#263b59;--txt:#edf4ff;--muted:#9aacc7;--blue:#438cff;--cyan:#37d6d0;--green:#25c58b;--red:#ff667c;--amber:#ffc45c;--shadow:0 16px 42px rgba(0,0,0,.24)}
@@ -483,6 +485,18 @@ def require_login(fn):
         if session.get('logged') is not True:return redirect('/login')
         return fn(*a,**k)
     return w
+def require_api_key(fn):
+    @wraps(fn)
+    def wrapped(*args,**kwargs):
+        supplied=request.headers.get('X-API-Key','').strip()
+        authorization=request.headers.get('Authorization','')
+        if not supplied and authorization.lower().startswith('bearer '):
+            supplied=authorization[7:].strip()
+        if not supplied or not hmac.compare_digest(supplied.encode(),API_TOKEN.encode()):
+            return jsonify(error='Unauthorized'),401
+        return fn(*args,**kwargs)
+    return wrapped
+
 def valid_domain(s):
     return len(s)<=253 and re.fullmatch(r'(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}',s or '') is not None
 def valid_resolver(s):
@@ -601,6 +615,158 @@ def make_unit(r, reload_systemd=True):
         z=ctl('daemon-reload')
         if z.returncode!=0:
             raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
+
+
+def _forget_tunnel_runtime_state(tunnel_id,port):
+    global LB_RR_INDEX
+    LOG_OFFSETS.pop(int(tunnel_id),None)
+    SUSPECT_SINCE.pop(int(tunnel_id),None)
+    with TRAFFIC_LOCK:
+        TRAFFIC_CACHE.pop(int(tunnel_id),None)
+        TRAFFIC_CACHE.pop('_sampled_at',None)
+    with LB_LOCK:
+        LB_QUARANTINED.pop(int(port),None)
+        LB_RR_INDEX=0
+
+def _remove_tunnel_runtime(row):
+    i=int(row['id']); names=(f'slipstream-auth-{i}',unit(i))
+    for name in names:
+        ctl('disable','--now',name);ctl('stop',name)
+        ctl('kill','--kill-whom=all','--signal=SIGKILL',name)
+        if ctl('is-active','--quiet',name).returncode==0:
+            raise RuntimeError(f'{name} is still active')
+    paths=(f'/etc/systemd/system/{names[0]}.service',
+           f'/etc/systemd/system/{names[1]}.service',
+           f'/etc/slipstream-panel/tunnels/{i}.json',log_path(row))
+    for path in paths:
+        try:os.remove(path)
+        except FileNotFoundError:pass
+    z=ctl('daemon-reload')
+    if z.returncode:raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
+    ctl('reset-failed',*names)
+    _forget_tunnel_runtime_state(i,int(row['port']))
+
+def _restore_tunnel_snapshot(snapshot):
+    i=int(snapshot['id'])
+    c=db()
+    try:
+        c.execute('BEGIN IMMEDIATE')
+        if not c.execute('SELECT 1 FROM tunnels WHERE id=?',(i,)).fetchone():
+            data={k:v for k,v in snapshot.items() if k!='id'}
+            cols=list(data)
+            c.execute('INSERT INTO tunnels (id,'+','.join(cols)+') VALUES (?,'+','.join('?' for _ in cols)+')',
+                      (i,)+tuple(data[k] for k in cols))
+        c.commit()
+    except Exception:
+        c.rollback();raise
+    finally:c.close()
+    c=db();row=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
+    make_unit(row,reload_systemd=False)
+    z=ctl('daemon-reload')
+    if z.returncode:raise RuntimeError((z.stderr or z.stdout).strip() or 'daemon-reload rollback failed')
+    if row['enabled']:
+        reset_log_cursor(row);z=ctl('enable','--now',unit(i))
+        if z.returncode:raise RuntimeError((z.stderr or z.stdout).strip() or 'old service restore failed')
+    else:ctl('disable',unit(i))
+    return row
+
+def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=False):
+    # Serialize all tunnel mutations across requests and worker threads.
+    with TUNNEL_MUTATION_LOCK:
+        c=db();old=c.execute('SELECT * FROM tunnels WHERE id=?',(int(tunnel_id),)).fetchone();c.close()
+        if not old:raise LookupError('Tunnel not found')
+        snapshot=dict(old);old_id=int(snapshot['id']);port=int(snapshot['port'])
+        if clear:
+            new_user=new_pass='';auth_disabled=1
+        else:
+            new_user=(username or '').strip();new_pass=password or ''
+            if not new_user or not new_pass:raise ValueError('Both username and password are required; use DELETE to clear.')
+            if len(new_user.encode())>255 or len(new_pass.encode())>255:raise ValueError('Credentials must be at most 255 bytes.')
+            if (new_user==(snapshot.get('upstream_username') or '') and
+                new_pass==(snapshot.get('upstream_password') or '') and
+                not snapshot.get('upstream_auth_disabled',0)):
+                return old_id,False
+            auth_disabled=0
+        replacement=dict(snapshot)
+        replacement.update(upstream_username=new_user,upstream_password=new_pass,
+            upstream_auth_disabled=auth_disabled,auth_enabled=0,auth_username='',auth_password='',
+            health_state='recovering' if snapshot['enabled'] else 'manual',retry_at=None,
+            last_started=time.time() if snapshot['enabled'] else snapshot.get('last_started'),
+            last_check=None,last_error='',failure_count=0,last_down=None)
+        new_id=None
+        try:
+            _remove_tunnel_runtime(snapshot)
+            c=db()
+            try:
+                c.execute('BEGIN IMMEDIATE')
+                # Explicit ID guarantees a genuinely new ID even when SQLite would reuse the deleted maximum.
+                new_id=int(c.execute('SELECT COALESCE(MAX(id),0)+1 FROM tunnels').fetchone()[0])
+                c.execute('DELETE FROM traffic_stats WHERE tunnel_id=?',(old_id,))
+                c.execute('DELETE FROM tunnels WHERE id=?',(old_id,))
+                data={k:v for k,v in replacement.items() if k!='id'}
+                cols=list(data)
+                c.execute('INSERT INTO tunnels (id,'+','.join(cols)+') VALUES (?,'+','.join('?' for _ in cols)+')',
+                          (new_id,)+tuple(data[k] for k in cols))
+                c.commit()
+            except Exception:
+                c.rollback();raise
+            finally:c.close()
+            c=db();fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(new_id,)).fetchone();c.close()
+            make_unit(fresh,reload_systemd=False)
+            z=ctl('daemon-reload')
+            if z.returncode:raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
+            ctl('reset-failed',unit(new_id))
+            if fresh['enabled']:
+                reset_log_cursor(fresh);z=ctl('enable','--now',unit(new_id))
+                if z.returncode:raise RuntimeError((z.stderr or z.stdout).strip() or 'new service start failed')
+                update(new_id,enabled=1,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
+            else:
+                ctl('disable',unit(new_id))
+                update(new_id,enabled=0,health_state='manual',retry_at=None,last_error='')
+            _forget_tunnel_runtime_state(old_id,port);_forget_tunnel_runtime_state(new_id,port)
+            return new_id,True
+        except Exception as error:
+            rollback_error=None
+            try:
+                if new_id is not None:
+                    c=db()
+                    try:
+                        nr=c.execute('SELECT * FROM tunnels WHERE id=?',(new_id,)).fetchone()
+                        if nr:
+                            c.execute('DELETE FROM traffic_stats WHERE tunnel_id=?',(new_id,))
+                            c.execute('DELETE FROM tunnels WHERE id=?',(new_id,))
+                        c.commit()
+                    finally:c.close()
+                    if nr:
+                        try:_remove_tunnel_runtime(dict(nr))
+                        except Exception:pass
+                _restore_tunnel_snapshot(snapshot)
+                _forget_tunnel_runtime_state(old_id,port)
+            except Exception as restore_error:rollback_error=str(restore_error)
+            message='Credential rotation failed: '+str(error)
+            if rollback_error:message+='; rollback failed: '+rollback_error
+            else:message+='; previous tunnel restored'
+            raise RuntimeError(message) from error
+
+def delete_tunnel_fully(tunnel_id):
+    with TUNNEL_MUTATION_LOCK:
+        c=db();row=c.execute('SELECT * FROM tunnels WHERE id=?',(int(tunnel_id),)).fetchone();c.close()
+        if not row:raise LookupError('Tunnel not found')
+        snapshot=dict(row);_remove_tunnel_runtime(snapshot)
+        c=db()
+        try:
+            c.execute('BEGIN IMMEDIATE')
+            c.execute('DELETE FROM traffic_stats WHERE tunnel_id=?',(int(tunnel_id),))
+            c.execute('DELETE FROM tunnels WHERE id=?',(int(tunnel_id),))
+            c.commit()
+        except Exception:
+            c.rollback()
+            try:_restore_tunnel_snapshot(snapshot)
+            except Exception as restore_error:raise RuntimeError('Delete failed and service rollback failed: '+str(restore_error))
+            raise
+        finally:c.close()
+        _forget_tunnel_runtime_state(tunnel_id,int(snapshot['port']))
+        return snapshot
 
 def start(r):
     make_unit(r);reset_log_cursor(r);ctl('enable',unit(r['id']));z=ctl('start',unit(r['id']))
@@ -1377,115 +1543,51 @@ def add_bulk():
 @require_login
 def upstream_auth_edit(i):
     check_csrf()
-    c=db()
-    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
-    if not r:abort(404)
-    username=request.form.get('upstream_username','').strip() or (r['upstream_username'] or '')
-    password=request.form.get('upstream_password','') or (r['upstream_password'] or '')
-    if bool(username)!=bool(password) or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
-        flash('نام کاربری و رمز SOCKS5 مقصد باید هر دو معتبر و حداکثر ۲۵۵ بایت باشند.')
-        return redirect('/')
-    # Retire the old per-tunnel inbound auth gateway; this field now stores
-    # only the remote SOCKS5 destination credentials for this tunnel.
-    update(i,upstream_username=username,upstream_password=password,upstream_auth_disabled=0,auth_enabled=0,auth_username='',auth_password='')
-    c=db()
-    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
+    username=request.form.get('upstream_username','').strip()
+    password=request.form.get('upstream_password','')
     try:
-        auth_unit=f'slipstream-auth-{i}'
-        ctl('stop',auth_unit)
-        ctl('disable',auth_unit)
-        make_unit(r)
-        if r['enabled']:
-            reset_log_cursor(r)
-            z=ctl('restart',unit(i))
-            if z.returncode!=0:
-                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
-            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        flash('اعتبارنامه SOCKS5 مقصد ذخیره شد؛ احراز هویت ورودی قدیمی این تونل نیز غیرفعال شد.')
-    except Exception as e:
-        flash('اعتبارنامه ذخیره شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
+        if not username and not password:
+            flash('برای حذف اعتبارنامه از دکمه حذف کامل استفاده کن؛ فرم خالی تغییری اعمال نمی‌کند.')
+        else:
+            new_id,changed=recreate_tunnel_credentials(i,username,password)
+            flash(f'اعتبارنامه به‌روزرسانی شد؛ تونل با شناسه جدید {new_id} ساخته شد.' if changed else 'اعتبارنامه بدون تغییر باقی ماند.')
+    except LookupError:abort(404)
+    except Exception as e:flash('تغییر اعتبارنامه انجام نشد: '+str(e))
     return redirect('/')
 
 @app.post('/upstream-auth/<int:i>/clear')
 @require_login
 def upstream_auth_clear(i):
     check_csrf()
-    c=db()
-    old=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
-    if not old: abort(404)
-
-    # Recreate the actual tunnel record, not just its systemd unit.
-    domain=old['domain']; resolver=old['resolver']; port=int(old['port'])
-    cert=old['cert'] or ''; was_enabled=bool(old['enabled'])
-    old_id=int(old['id'])
-    old_units=(f'slipstream-auth-{old_id}',unit(old_id))
-    old_paths=(f'/etc/systemd/system/{unit(old_id)}.service',
-               f'/etc/systemd/system/slipstream-auth-{old_id}.service',
-               f'/etc/slipstream-panel/tunnels/{old_id}.json')
     try:
-        for old_unit in old_units:
-            ctl('disable','--now',old_unit)
-            ctl('stop',old_unit)
-            ctl('kill','--kill-whom=all','--signal=SIGKILL',old_unit)
-            if ctl('is-active','--quiet',old_unit).returncode==0:
-                raise RuntimeError(f'سرویس قدیمی {old_unit} هنوز فعال است.')
-
-        for path in old_paths:
-            try: os.remove(path)
-            except FileNotFoundError: pass
-        z=ctl('daemon-reload')
-        if z.returncode:
-            raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
-
-        c=db()
-        try:
-            c.execute('DELETE FROM traffic_stats WHERE tunnel_id=?',(old_id,))
-            c.execute('DELETE FROM tunnels WHERE id=?',(old_id,))
-            cur=c.execute(
-                """INSERT INTO tunnels
-                (domain,resolver,port,cert,enabled,health_state,last_started,
-                 auth_enabled,auth_username,auth_password,
-                 upstream_username,upstream_password,upstream_auth_disabled)
-                VALUES(?,?,?,?,?,?,?,0,'','','','',1)""",
-                (domain,resolver,port,cert,1 if was_enabled else 0,
-                 'recovering' if was_enabled else 'manual',time.time()))
-            new_id=cur.lastrowid
-            c.commit()
-            fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(new_id,)).fetchone()
-        except Exception:
-            c.rollback()
-            raise
-        finally:
-            c.close()
-
-        LOG_OFFSETS.pop(old_id,None)
-        SUSPECT_SINCE.pop(old_id,None)
-        make_unit(fresh,reload_systemd=False)
-        z=ctl('daemon-reload')
-        if z.returncode:
-            raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
-        ctl('reset-failed',unit(new_id))
-
-        if was_enabled:
-            reset_log_cursor(fresh)
-            z=ctl('enable','--now',unit(new_id))
-            if z.returncode:
-                err=(z.stderr or z.stdout).strip() or 'اجرای تونل جدید ناموفق بود.'
-                update(new_id,health_state='cooldown',retry_at=time.time()+COOLDOWN,
-                       last_error=err,last_down=time.time(),failure_count=1)
-                raise RuntimeError(err)
-            update(new_id,enabled=1,health_state='recovering',retry_at=None,
-                   last_started=time.time(),last_error='')
-            flash(f'تونل قبلی حذف و با شناسه جدید {new_id} دوباره ساخته و اجرا شد؛ دامنه، DNS، پورت و گواهی حفظ شدند و اطلاعات ورود پاک شدند.')
-        else:
-            flash(f'تونل قبلی حذف و با شناسه جدید {new_id} دوباره ساخته شد؛ دامنه، DNS، پورت و گواهی حفظ شدند و تونل متوقف باقی ماند.')
-    except Exception as e:
-        flash('حذف و افزودن مجدد تونل کامل نشد: '+str(e))
+        new_id,changed=recreate_tunnel_credentials(i,clear=True)
+        flash(f'اعتبارنامه حذف شد و تونل با شناسه جدید {new_id} بازسازی شد.')
+    except LookupError:abort(404)
+    except Exception as e:flash('حذف اعتبارنامه انجام نشد: '+str(e))
     return redirect('/')
 
+@app.route('/api/tunnels/<int:i>/credentials',methods=['PUT','PATCH','DELETE'])
+@require_api_key
+def api_tunnel_credentials(i):
+    if request.method=='DELETE':
+        clear=True;username=password=None
+    else:
+        payload=request.get_json(silent=True)
+        if not isinstance(payload,dict):return jsonify(error='JSON object required'),400
+        username=payload.get('username',payload.get('upstream_username'))
+        password=payload.get('password',payload.get('upstream_password'))
+        if not isinstance(username,str) or not isinstance(password,str):
+            return jsonify(error='username and password strings are required'),400
+        username=username.strip()
+        if not username or not password:return jsonify(error='Both fields must be non-empty; use DELETE to clear'),400
+        clear=False
+    try:
+        new_id,changed=recreate_tunnel_credentials(i,username,password,clear)
+        return jsonify(ok=True,changed=changed,previous_id=i,id=new_id,
+                       action='cleared' if clear else 'updated')
+    except LookupError:return jsonify(error='Tunnel not found'),404
+    except ValueError as e:return jsonify(error=str(e)),400
+    except Exception as e:return jsonify(error=str(e)),500
 
 @app.post('/dns/<int:i>')
 @require_login
@@ -1595,14 +1697,10 @@ def action(i,act):
     elif act=='stop':
         ctl('stop',unit(i));update(i,enabled=0,health_state='manual',retry_at=None,last_error='');flash('توقف دستی انجام شد.')
     elif act=='delete':
-        ctl('disable','--now',unit(i));ctl('disable','--now',f'slipstream-auth-{i}')
-        try:os.remove(f'/etc/systemd/system/slipstream-auth-{i}.service')
-        except FileNotFoundError:pass
-        try:os.remove(f'/etc/slipstream-panel/tunnels/{i}.json')
-        except FileNotFoundError:pass
-        try:os.remove(f'/etc/systemd/system/{unit(i)}.service')
-        except FileNotFoundError:pass
-        ctl('daemon-reload');c=db();c.execute('DELETE FROM tunnels WHERE id=?',(i,));c.commit();c.close();flash('تونل حذف شد.')
+        try:
+            delete_tunnel_fully(i)
+            flash('تونل و تمام منابع وابسته حذف شدند.')
+        except Exception as e:flash('حذف تونل انجام نشد: '+str(e))
     else:abort(404)
     return redirect('/')
 @app.route('/logs/<int:i>')
