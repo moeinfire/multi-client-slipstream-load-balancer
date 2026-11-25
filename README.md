@@ -84,7 +84,7 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Root or sudo access.
 - Python 3.
 - Flask.
-- The Slipstream client binary is bundled in the repository and installed automatically.
+- The installer downloads only the Linux AMD64 Slipstream client binary from this repository’s `master` branch and installs it automatically.
 
 ## 🚀 Quick Installation (One Command)
 
@@ -116,7 +116,7 @@ For safety, external certificate files, firewall rules, unrelated services, and 
 
 ## ⚠️ Important Notes
 
-- The Slipstream client binary is included in the repository and installed by the installer.
+- The Slipstream client binary is downloaded directly from this repository’s `master` branch; `update.sh` refreshes it when the project is updated.
 - Tunnel configurations and systemd tunnel services are not included.
 - Each user must configure their own domains, DNS resolvers, certificates, and tunnel settings.
 - The panel should not be exposed directly to the public internet without appropriate access restrictions and HTTPS protection.
