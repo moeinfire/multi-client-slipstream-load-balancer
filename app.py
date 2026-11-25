@@ -405,7 +405,7 @@ class LBHandler(socketserver.BaseRequestHandler):
             # The raw Slipstream listener requires the remote SOCKS account
             # supplied by the client. If a panel auth gateway is enabled,
             # authenticate to that gateway with its per-tunnel credentials.
-            upstream.sendall(b'\x05\x02\x00')
+            upstream.sendall(b'\x05\x02\x00\x02')
             selected=lb_recv_exact(upstream,2)
             if selected[0]!=5 or selected[1] not in (0,2):
                 lb_send_failure(client,1)
