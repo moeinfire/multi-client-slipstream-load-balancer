@@ -10,7 +10,7 @@ PMIN=int(os.environ.get('PORT_MIN','10800')); PMAX=int(os.environ.get('PORT_MAX'
 PANEL_HOST=os.environ.get('PANEL_HOST','0.0.0.0'); PANEL_PORT=int(os.environ.get('PANEL_PORT','18080'))
 PANEL_BASE_PATH=open('/etc/slipstream-panel/base-path').read().strip().rstrip('/') if os.path.exists('/etc/slipstream-panel/base-path') else ''
 if PANEL_BASE_PATH and not re.fullmatch(r'/[A-Za-z0-9_-]{4,64}', PANEL_BASE_PATH): raise RuntimeError('Invalid panel base path')
-LOCAL_HOST='127.0.0.1'; CHECK=10; COOLDOWN=300; ERROR_GRACE_SECONDS=30
+LOCAL_HOST='127.0.0.1'; CHECK=3; COOLDOWN=300; ERROR_GRACE_SECONDS=30
 LOGDIR='/var/log/slipstream-panel'
 LOG_OFFSETS={}
 SUSPECT_SINCE={}
@@ -122,7 +122,7 @@ function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).pa
 function bytes(v){if(v===null||v===undefined)return 'غیرفعال';let n=Math.max(0,Number(v));if(n<1024)return n.toFixed(0)+' B';let u=['KB','MB','GB','TB'];n/=1024;let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(2)+' '+u[i]}
 function rate(v){return bytes(v)+'/s'}
 async function refresh(){try{let r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)return;let d=await r.json(),h=0,c=0;for(let t of d.tunnels){let e=document.getElementById('health-'+t.id);if(!e)continue;let rx=document.getElementById('rx-'+t.id),tx=document.getElementById('tx-'+t.id),tot=document.getElementById('total-'+t.id),sp=document.getElementById('speed-'+t.id);if(rx){rx.textContent=t.traffic_ready?bytes(t.rx):'نیازمند فعال‌سازی';tx.textContent=t.traffic_ready?bytes(t.tx):'نیازمند فعال‌سازی';tot.textContent=t.traffic_ready?bytes(t.rx+t.tx):'—';sp.textContent=t.traffic_ready?'سرعت دریافتی '+rate(t.rx_rate)+' · ارسالی '+rate(t.tx_rate):'حسابداری ترافیک هنوز فعال نشده'}let tm=document.getElementById('timer-'+t.id),de=document.getElementById('detail-'+t.id);e.className='pill '+(t.state==='connected'?'up':(t.state==='recovering'?'wait':'down'));e.textContent=t.state==='connected'?'● متصل':t.state==='cooldown'?'● قطع موقت':t.state==='recovering'?'● در حال اتصال':t.state==='manual'?'● توقف دستی':'● قطع شده';if(t.state==='connected')h++;if(t.state==='cooldown')c++;de.textContent=t.state==='cooldown'?'اتصال مجدد خودکار':t.state==='recovering'?'در حال بررسی اتصال':t.state==='connected'?'پیام connection ready دریافت شده':t.state==='manual'?'توقف توسط مدیر':'سرویس قطع است';tm.textContent=t.state==='cooldown'&&t.retry_at?'بازگشت در '+clock(t.retry_at-Date.now()/1000):'';document.getElementById('error-'+t.id).textContent=t.last_error||'';document.getElementById('fails-'+t.id).textContent=t.failure_count||0}document.getElementById('healthy').textContent=h;document.getElementById('cooling').textContent=c}catch(e){}}
-refresh();setInterval(refresh,5000);
+refresh();setInterval(()=>{if(!document.hidden)refresh()},2000);
 </script>
 {% endif %}</div><style>
 #languageSwitch{position:fixed;z-index:99999;top:14px;right:16px;border:1px solid #49658a;border-radius:10px;padding:8px 13px;background:#172b46;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 5px 18px #0005}
