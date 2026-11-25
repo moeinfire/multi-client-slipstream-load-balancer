@@ -111,7 +111,7 @@ fi
 install -m 0750 "$SCRIPT_DIR/app.py" "$APP/app.py"
 echo "Installed DNS scanner: stage two is limited to IPs that passed stage-one ping."
 
-# Always download only the Linux AMD64 Slipstream executable from this fork.
+# Always download the Linux AMD64 executable from the latest upstream GitHub Release.
 
 download_slipstream_binary() {
   [[ "$(uname -m)" == "x86_64" ]] || {
@@ -126,7 +126,7 @@ download_slipstream_binary() {
   local tmp_bin
   tmp_bin="$(mktemp "${BIN}.download.XXXXXX")"
   if ! curl --fail --location --silent --show-error --retry 3 --connect-timeout 15 \
-      "https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/slipstream" \
+      "https://github.com/AliRezaBeigy/slipstream-rust-deploy/releases/latest/download/slipstream-client-linux-amd64" \
       --output "$tmp_bin"; then
     rm -f -- "$tmp_bin"
     echo "ERROR: Could not download the latest Slipstream Linux AMD64 binary."
