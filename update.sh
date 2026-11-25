@@ -85,7 +85,6 @@ PY
 }
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-[[ -s "$APP/socks5-gateway.py" ]] || { echo "ERROR: Installed SOCKS5 gateway is missing; run install.sh for a safe migration."; exit 1; }
 BIN_BACKUP=""
 if [[ -f "$BIN" ]]; then
   BIN_BACKUP="$BIN.bak.$STAMP"
@@ -97,7 +96,11 @@ GATEWAY_BACKUP="$APP/socks5-gateway.py.bak.$STAMP"
 TEMP="$APP/.app.py.new"
 GATEWAY_TEMP="$APP/.socks5-gateway.py.new"
 cp -a "$APP/app.py" "$BACKUP"
-cp -a "$APP/socks5-gateway.py" "$GATEWAY_BACKUP"
+if [[ -f "$APP/socks5-gateway.py" ]]; then
+  cp -a "$APP/socks5-gateway.py" "$GATEWAY_BACKUP"
+else
+  GATEWAY_BACKUP=""
+fi
 install -m 0750 "$SCRIPT_DIR/app.py" "$TEMP"
 install -m 0750 "$SCRIPT_DIR/socks5-gateway.py" "$GATEWAY_TEMP"
 chown root:root "$TEMP" "$GATEWAY_TEMP"
@@ -113,7 +116,11 @@ mv -f "$GATEWAY_TEMP" "$APP/socks5-gateway.py"
 if ! systemctl restart slipstream-panel || ! systemctl is-active --quiet slipstream-panel; then
   echo "Panel restart failed; restoring the previous app.py."
   cp -a "$BACKUP" "$APP/app.py"
-  cp -a "$GATEWAY_BACKUP" "$APP/socks5-gateway.py"
+  if [[ -n "$GATEWAY_BACKUP" && -f "$GATEWAY_BACKUP" ]]; then
+    cp -a "$GATEWAY_BACKUP" "$APP/socks5-gateway.py"
+  else
+    rm -f "$APP/socks5-gateway.py"
+  fi
   if [[ -n "$BIN_BACKUP" && -f "$BIN_BACKUP" ]]; then cp -a "$BIN_BACKUP" "$BIN"; fi
   systemctl restart slipstream-panel || true
   echo "Previous file restored from $BACKUP"
@@ -123,5 +130,5 @@ fi
 
 echo "Panel updated successfully."
 echo "App backup: $BACKUP"
-echo "Gateway backup: $GATEWAY_BACKUP"
+if [[ -n "$GATEWAY_BACKUP" ]]; then echo "Gateway backup: $GATEWAY_BACKUP"; else echo "Gateway backup: none (new helper installed)"; fi
 systemctl --no-pager --full status slipstream-panel
