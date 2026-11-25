@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""SOCKS5 gateway with independent local and upstream authentication.
-
-If panel credentials are configured, clients must authenticate with those
-credentials and the gateway uses them upstream. If panel credentials are empty,
-the client's selected SOCKS5 method and RFC1929 credentials are negotiated
-with and forwarded to the remote SOCKS5 server.
-"""
+"""SOCKS5 gateway supporting both panel authentication and client credential passthrough."""
 import hmac
 import json
 import select
@@ -42,29 +36,45 @@ def read_request(sock):
 
 
 def failure_reply():
-    return b"\x05\x01\x00\x01\x00\x00\x00\x00\x00"
+    return b"\x05\x01\x00\x01\x00\x00\x00\x00\x00\x00"
 
 
 def read_credentials(sock):
-    version = recv_exact(sock, 1)
-    if version != b"\x01":
+    if recv_exact(sock, 1) != b"\x01":
         raise ValueError("invalid RFC1929 version")
     ulen = recv_exact(sock, 1)[0]
-    if ulen == 0:
+    if not ulen:
         raise ValueError("empty SOCKS5 username")
     username = recv_exact(sock, ulen)
     plen = recv_exact(sock, 1)[0]
-    if plen == 0:
+    if not plen:
         raise ValueError("empty SOCKS5 password")
     password = recv_exact(sock, plen)
     return username, password
 
 
 def send_credentials(sock, username, password):
+    if not (1 <= len(username) <= 255 and 1 <= len(password) <= 255):
+        raise ValueError("SOCKS5 credentials must be 1..255 bytes")
     sock.sendall(
         b"\x01" + bytes((len(username),)) + username +
         bytes((len(password),)) + password
     )
+
+
+def negotiate_upstream(upstream, methods):
+    # Preserve preference order: username/password first, then no-auth.
+    unique = []
+    for method in methods:
+        if method in (2, 0) and method not in unique:
+            unique.append(method)
+    if not unique:
+        raise ValueError("no common SOCKS5 authentication method")
+    upstream.sendall(bytes((5, len(unique), *unique)))
+    reply = recv_exact(upstream, 2)
+    if reply[0] != 5 or reply[1] not in unique:
+        raise PermissionError("upstream rejected available SOCKS5 methods")
+    return reply[1]
 
 
 class Gateway:
@@ -88,52 +98,63 @@ class Gateway:
                 return
             client_methods = list(recv_exact(client, greeting[1]))
 
-            # Configured panel credentials retain the original protected mode.
-            # Otherwise, negotiate whichever method the client and upstream
-            # can both use, preferring username/password when offered.
             if self.panel_auth:
-                offered = [2] if 2 in client_methods else []
-            else:
-                offered = [m for m in (2, 0) if m in client_methods]
-            if not offered:
-                client.sendall(b"\x05\xff")
-                return
-
-            upstream = socket.create_connection(
-                (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
-                timeout=15
-            )
-            upstream.settimeout(30)
-            upstream.sendall(bytes((5, len(offered), *offered)))
-            upstream_choice = recv_exact(upstream, 2)
-            if upstream_choice[0] != 5 or upstream_choice[1] not in offered:
-                client.sendall(b"\x05\xff")
-                return
-
-            method = upstream_choice[1]
-            client.sendall(bytes((5, method)))
-
-            if method == 2:
-                client_user, client_password = read_credentials(client)
-                if self.panel_auth:
-                    valid = (
-                        hmac.compare_digest(client_user, self.username) and
-                        hmac.compare_digest(client_password, self.password)
-                    )
-                    if not valid:
-                        client.sendall(b"\x01\x01")
-                        return
-                    upstream_user, upstream_password = self.username, self.password
-                else:
-                    # No panel credentials: transparently pass the client's
-                    # RFC1929 credentials to the upstream SOCKS5 service.
-                    upstream_user, upstream_password = client_user, client_password
-
-                send_credentials(upstream, upstream_user, upstream_password)
-                auth_reply = recv_exact(upstream, 2)
-                client.sendall(auth_reply)
-                if auth_reply != b"\x01\x00":
+                # Mode A: authenticate the external client against panel
+                # credentials locally. Do not expose upstream negotiation
+                # details to the client.
+                if 2 not in client_methods:
+                    client.sendall(b"\x05\xff")
                     return
+                client.sendall(b"\x05\x02")
+                client_user, client_password = read_credentials(client)
+                valid = (
+                    hmac.compare_digest(client_user, self.username) and
+                    hmac.compare_digest(client_password, self.password)
+                )
+                if not valid:
+                    client.sendall(b"\x01\x01")
+                    return
+                client.sendall(b"\x01\x00")
+
+                upstream = socket.create_connection(
+                    (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
+                    timeout=15
+                )
+                upstream.settimeout(30)
+                upstream_method = negotiate_upstream(upstream, [2, 0])
+
+                # Keep compatibility with authenticated remote SOCKS servers:
+                # use panel credentials if upstream asks for RFC1929; if it
+                # selects no-auth, do not send an unnecessary auth packet.
+                if upstream_method == 2:
+                    send_credentials(upstream, self.username, self.password)
+                    if recv_exact(upstream, 2) != b"\x01\x00":
+                        client.sendall(failure_reply())
+                        return
+
+            else:
+                # Mode B: no credentials configured in panel. Negotiate with
+                # upstream using only methods the external client offered,
+                # then pass RFC1929 credentials through unchanged if selected.
+                methods = [m for m in (2, 0) if m in client_methods]
+                if not methods:
+                    client.sendall(b"\x05\xff")
+                    return
+                upstream = socket.create_connection(
+                    (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
+                    timeout=15
+                )
+                upstream.settimeout(30)
+                upstream_method = negotiate_upstream(upstream, methods)
+                client.sendall(bytes((5, upstream_method)))
+
+                if upstream_method == 2:
+                    client_user, client_password = read_credentials(client)
+                    send_credentials(upstream, client_user, client_password)
+                    auth_reply = recv_exact(upstream, 2)
+                    client.sendall(auth_reply)
+                    if auth_reply != b"\x01\x00":
+                        return
 
             request = read_request(client)
             upstream.sendall(request)
