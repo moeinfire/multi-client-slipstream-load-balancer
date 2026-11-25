@@ -14,9 +14,10 @@ command -v curl >/dev/null 2>&1 || { echo "ERROR: curl is required to update the
   echo "Panel configuration or credentials are missing; refusing to update."
   exit 1
 }
-[[ -s "$SCRIPT_DIR/app.py" ]] || { echo "Repository app.py is missing."; exit 1; }
+[[ -s "$SCRIPT_DIR/app.py" ]] || { echo "ERROR: Repository app.py is missing."; exit 1; }
+[[ -s "$SCRIPT_DIR/socks5-gateway.py" ]] || { echo "ERROR: Repository socks5-gateway.py is missing."; exit 1; }
 
-python3 - "$SCRIPT_DIR/app.py" <<'PY'
+python3 - "$SCRIPT_DIR/app.py" "$SCRIPT_DIR/socks5-gateway.py" <<'PY'
 import ast, sys
 from pathlib import Path
 if sys.version_info < (3, 9):
@@ -25,11 +26,15 @@ try:
     import flask
 except Exception as exc:
     raise SystemExit(f"ERROR: Flask is not importable by the system Python: {exc}")
-source = Path(sys.argv[1]).read_text(encoding="utf-8")
-ast.parse(source, filename=sys.argv[1])
-if "candidates=list(resolvers)" not in source or "ICMP is informational only" not in source:
-    raise SystemExit("ERROR: app.py is missing the ICMP-independent DNS scanner implementation.")
-print("Python, Flask, and app.py validation passed.")
+for filename in sys.argv[1:]:
+    source = Path(filename).read_text(encoding="utf-8")
+    ast.parse(source, filename=filename)
+app = Path(sys.argv[1]).read_text(encoding="utf-8")
+if "ping_success={item['resolver']" not in app or "candidates=[resolver for resolver in resolvers if resolver in ping_success]" not in app:
+    raise SystemExit("ERROR: app.py must restrict stage two to DNS IPs that passed stage-one ping.")
+if "auth_enabled" not in app or "socks5-gateway.py" not in app:
+    raise SystemExit("ERROR: app.py is missing the per-tunnel SOCKS5 authentication gateway integration.")
+print("Python, Flask, app.py, gateway syntax, and DNS scanner checks passed.")
 PY
 
 
@@ -80,6 +85,7 @@ PY
 }
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+[[ -s "$APP/socks5-gateway.py" ]] || { echo "ERROR: Installed SOCKS5 gateway is missing; run install.sh for a safe migration."; exit 1; }
 BIN_BACKUP=""
 if [[ -f "$BIN" ]]; then
   BIN_BACKUP="$BIN.bak.$STAMP"
@@ -87,20 +93,27 @@ if [[ -f "$BIN" ]]; then
 fi
 download_slipstream_binary
 BACKUP="$APP/app.py.bak.$STAMP"
+GATEWAY_BACKUP="$APP/socks5-gateway.py.bak.$STAMP"
 TEMP="$APP/.app.py.new"
+GATEWAY_TEMP="$APP/.socks5-gateway.py.new"
 cp -a "$APP/app.py" "$BACKUP"
+cp -a "$APP/socks5-gateway.py" "$GATEWAY_BACKUP"
 install -m 0750 "$SCRIPT_DIR/app.py" "$TEMP"
-chown root:root "$TEMP"
-python3 - "$TEMP" <<'PY'
+install -m 0750 "$SCRIPT_DIR/socks5-gateway.py" "$GATEWAY_TEMP"
+chown root:root "$TEMP" "$GATEWAY_TEMP"
+python3 - "$TEMP" "$GATEWAY_TEMP" <<'PY'
 import ast, sys
 from pathlib import Path
-ast.parse(Path(sys.argv[1]).read_text(encoding="utf-8"), filename=sys.argv[1])
+for filename in sys.argv[1:]:
+    ast.parse(Path(filename).read_text(encoding="utf-8"), filename=filename)
 PY
 mv -f "$TEMP" "$APP/app.py"
+mv -f "$GATEWAY_TEMP" "$APP/socks5-gateway.py"
 
 if ! systemctl restart slipstream-panel || ! systemctl is-active --quiet slipstream-panel; then
   echo "Panel restart failed; restoring the previous app.py."
   cp -a "$BACKUP" "$APP/app.py"
+  cp -a "$GATEWAY_BACKUP" "$APP/socks5-gateway.py"
   if [[ -n "$BIN_BACKUP" && -f "$BIN_BACKUP" ]]; then cp -a "$BIN_BACKUP" "$BIN"; fi
   systemctl restart slipstream-panel || true
   echo "Previous file restored from $BACKUP"
@@ -109,5 +122,6 @@ if ! systemctl restart slipstream-panel || ! systemctl is-active --quiet slipstr
 fi
 
 echo "Panel updated successfully."
-echo "Backup: $BACKUP"
+echo "App backup: $BACKUP"
+echo "Gateway backup: $GATEWAY_BACKUP"
 systemctl --no-pager --full status slipstream-panel
