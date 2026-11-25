@@ -423,7 +423,7 @@ class LBHandler(socketserver.BaseRequestHandler):
                 if backend['auth_enabled']:
                     backend_user=(backend['auth_username'] or '').encode('utf-8')
                     backend_pass=(backend['auth_password'] or '').encode('utf-8')
-                elif require_lb_auth or not (client_username and client_password):
+                elif lb_auth or not (client_username and client_password):
                     backend_user=(get_setting('lb_upstream_username','') or '').encode('utf-8')
                     backend_pass=(get_setting('lb_upstream_password','') or '').encode('utf-8')
                 else:
