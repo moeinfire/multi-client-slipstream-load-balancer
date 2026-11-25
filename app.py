@@ -115,7 +115,7 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 <div class="card"><h3>🌐 مدیریت DNS کلی</h3><form method="post" action="/dns/global"><input type="hidden" name="csrf" value="{{csrf}}"><label>DNS Resolverهای عمومی (هر خط یک مورد، فرمت IP:PORT)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea><div class="actions" style="margin-top:12px"><button class="gray" name="mode" value="save">ذخیره به‌عنوان DNS پیش‌فرض</button><button class="green" name="mode" value="apply" onclick="return confirm('DNSهای واردشده روی تمام تونل‌ها اعمال و تونل‌های فعال به‌ترتیب ری‌استارت می‌شوند. ادامه می‌دهید؟')">اعمال روی همه تونل‌ها</button></div></form><div class="hint" style="margin-top:12px">ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد. «اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند. برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.</div></div>
 <div class="card"><h3>＋ افزودن دامنه</h3><form method="post" action="/add"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه</label><input name="domain" placeholder="t.example.com" required></div><div><label>DNS Resolverها (هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت محلی (اختیاری)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="خودکار"></div><div><label>گواهی PEM (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div></div><p><button>افزودن و اجرای تونل</button></p></form><div class="hint">DNSها به شکل گزینه‌های تکرارشونده <code>--resolver</code> اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».</div></div>
 <div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود. احراز هویت SOCKS همانند تونل مقصد عبور داده می‌شود؛ این بخش دست‌دهی SOCKS5 را تغییر نمی‌دهد.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div>
-<div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
+<div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
 <div class="card"><h3>منطق پایش سلامت</h3><div class="hint">هر ۱ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود. پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛ اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود. در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود. این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.</div></div>
 <script>
 function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
@@ -123,8 +123,16 @@ function bytes(v){if(v===null||v===undefined)return 'غیرفعال';let n=Math.
 function rate(v){return bytes(v)+'/s'}
 const statusApiUrl=document.body.dataset.statusUrl;
 let liveRefreshBusy=false;
+let liveRefreshTimer=null;
+function scheduleStatusRefresh(delay=2000){
+ if(liveRefreshTimer)clearTimeout(liveRefreshTimer);
+ liveRefreshTimer=setTimeout(()=>{
+  liveRefreshTimer=null;
+  if(!document.hidden)refresh();
+ },delay);
+}
 async function refresh(){
- if(liveRefreshBusy)return;
+ if(liveRefreshBusy||document.hidden)return;
  liveRefreshBusy=true;
  try{
   const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);let r;try{r=await fetch(statusApiUrl,{method:'GET',cache:'no-store',credentials:'same-origin',headers:{'Accept':'application/json','Cache-Control':'no-cache'},signal:controller.signal})}finally{clearTimeout(timeout)}
@@ -135,16 +143,19 @@ async function refresh(){
   if(!Array.isArray(d.tunnels))throw new Error('Invalid status response');
   let h=0,c=0;
   for(const t of d.tunnels){
-   const e=document.getElementById('health-'+t.id);
+   const row=document.querySelector('tr[data-tunnel-id="'+t.id+'"]');
+   const e=row?.querySelector('.health-badge')||document.getElementById('health-'+t.id);
    if(!e)continue;
    const rx=document.getElementById('rx-'+t.id),tx=document.getElementById('tx-'+t.id),tot=document.getElementById('total-'+t.id),sp=document.getElementById('speed-'+t.id);
    if(rx){rx.textContent=t.traffic_ready?bytes(t.rx):'نیازمند فعال‌سازی';tx.textContent=t.traffic_ready?bytes(t.tx):'نیازمند فعال‌سازی';tot.textContent=t.traffic_ready?bytes(t.rx+t.tx):'—';sp.textContent=t.traffic_ready?'سرعت دریافتی '+rate(t.rx_rate)+' · ارسالی '+rate(t.tx_rate):'حسابداری ترافیک هنوز فعال نشده'}
    const tm=document.getElementById('timer-'+t.id),de=document.getElementById('detail-'+t.id),err=document.getElementById('error-'+t.id),fails=document.getElementById('fails-'+t.id);
-   e.className='pill '+(t.state==='connected'?'up':(t.state==='recovering'?'wait':'down'));
-   e.textContent=t.state==='connected'?'● متصل':t.state==='cooldown'?'● قطع موقت':t.state==='recovering'?'● در حال اتصال':t.state==='manual'?'● توقف دستی':'● قطع شده';
-   if(t.state==='connected')h++;
+   const badgeState=!t.active?'down':(t.healthy?'up':(t.state==='recovering'?'wait':'down'));
+   e.className='pill health-badge '+badgeState;
+   e.textContent=t.status_text|| (t.healthy?'● متصل':'● قطع شده');
+   e.title=t.last_error||'';
+   if(t.healthy)h++;
    if(t.state==='cooldown')c++;
-   if(de)de.textContent=t.state==='cooldown'?'اتصال مجدد خودکار':t.state==='recovering'?'در حال بررسی اتصال':t.state==='connected'?'پیام connection ready دریافت شده':t.state==='manual'?'توقف توسط مدیر':'سرویس قطع است';
+   if(de)de.textContent=t.status_detail||t.last_error||'';
    if(tm)tm.textContent=t.state==='cooldown'&&t.retry_at?'بازگشت در '+clock(t.retry_at-Date.now()/1000):'';
    if(err)err.textContent=t.last_error||'';
    if(fails)fails.textContent=t.failure_count||0;
@@ -158,9 +169,15 @@ async function refresh(){
   console.error('Live health update failed:',e);
   const live=document.getElementById('live-status');
   if(live){live.textContent='خطا در به‌روزرسانی زنده: '+e.message;live.style.color='var(--red)'}
- }finally{liveRefreshBusy=false}
+ }finally{
+  liveRefreshBusy=false;
+  scheduleStatusRefresh(2000);
+ }
 }
-refresh();setInterval(()=>{if(!document.hidden)refresh()},1000);
+document.addEventListener('visibilitychange',()=>{
+ if(!document.hidden)refresh();
+});
+refresh();
 </script>
 {% endif %}</div><style>
 #languageSwitch{position:fixed;z-index:99999;top:14px;right:16px;border:1px solid #49658a;border-radius:10px;padding:8px 13px;background:#172b46;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 5px 18px #0005}
@@ -528,6 +545,15 @@ def sample_traffic(force=False):
         c.commit();c.close()
         TRAFFIC_CACHE['_sampled_at']=now
 
+def traffic_sampler():
+    """Collect traffic counters independently so slow systemctl calls never delay log health checks."""
+    while True:
+        try:
+            sample_traffic(force=True)
+        except Exception as e:
+            print(f'[traffic-sampler] {type(e).__name__}: {e}',flush=True)
+        time.sleep(TRAFFIC_SAMPLE_SECONDS)
+
 def traffic_snapshot(i):
     sample_traffic()
     with TRAFFIC_LOCK:
@@ -537,7 +563,8 @@ def monitor():
     while True:
         try:
             c=db();rows=c.execute('SELECT * FROM tunnels WHERE enabled=1').fetchall();c.close();now=time.time()
-            sample_traffic()
+            # Health monitoring must not wait for systemd traffic accounting.
+            # Traffic sampling runs independently in traffic_sampler().
             for r in rows:
                 i=r['id'];retry=r['retry_at']
                 if retry:
@@ -962,15 +989,21 @@ def api():
     c=sqlite3.connect('file:'+DB+'?mode=ro',uri=True,timeout=2)
     c.row_factory=sqlite3.Row
     try:
-        rows=c.execute('SELECT id,health_state,retry_at,last_error,failure_count FROM tunnels ORDER BY port').fetchall()
+        rows=c.execute('SELECT id,enabled,health_state,retry_at,last_error,failure_count FROM tunnels ORDER BY port').fetchall()
     finally:
         c.close()
     defaults={'ready':False,'rx':0,'tx':0,'rx_rate':0,'tx_rate':0}
+    labels={'connected':'● متصل','cooldown':'● قطع موقت','recovering':'● در حال اتصال','manual':'● توقف دستی'}
+    details={'connected':'پیام connection ready دریافت شده','cooldown':'اتصال مجدد خودکار','recovering':'در حال بررسی اتصال','manual':'توقف توسط مدیر'}
     out=[]
     for t in rows:
-        # TRAFFIC_CACHE entries are replaced atomically; do not acquire TRAFFIC_LOCK here.
+        # The health state is read from SQLite; traffic counters are an independent best-effort snapshot.
         st=dict(TRAFFIC_CACHE.get(int(t['id']),defaults))
-        out.append({'id':t['id'],'state':t['health_state'],'retry_at':t['retry_at'],'last_error':t['last_error'],'failure_count':t['failure_count'],
+        state=t['health_state']
+        out.append({'id':t['id'],'active':bool(t['enabled']),'enabled':bool(t['enabled']),
+                    'healthy':state=='connected','state':state,'status_text':labels.get(state,'● قطع شده'),
+                    'status_detail':details.get(state,'سرویس قطع است'),
+                    'retry_at':t['retry_at'],'last_error':t['last_error'],'failure_count':t['failure_count'],
                     'traffic_ready':st['ready'],'rx':st['rx'],'tx':st['tx'],'rx_rate':st['rx_rate'],'tx_rate':st['tx_rate']})
     response=jsonify(tunnels=out)
     response.headers['Cache-Control']='no-store, no-cache, must-revalidate, max-age=0'
@@ -1142,5 +1175,6 @@ def logs(i):
 if __name__=='__main__':
     db().close()
     threading.Thread(target=monitor,daemon=True,name='slipstream-health-monitor').start()
+    threading.Thread(target=traffic_sampler,daemon=True,name='slipstream-traffic-sampler').start()
     threading.Thread(target=lb_supervisor,daemon=True,name='slipstream-lb-supervisor').start()
     app.run(host=PANEL_HOST,port=PANEL_PORT,debug=False,use_reloader=False)
