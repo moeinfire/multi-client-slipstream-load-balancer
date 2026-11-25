@@ -1413,53 +1413,77 @@ def upstream_auth_edit(i):
 def upstream_auth_clear(i):
     check_csrf()
     c=db()
-    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
+    old=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
-    if not r: abort(404)
+    if not old: abort(404)
 
-    was_enabled=bool(r['enabled'])
-    update(i,upstream_username='',upstream_password='',upstream_auth_disabled=1,
-           auth_enabled=0,auth_username='',auth_password='')
-
-    c=db()
-    fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
-    service=unit(i)
-    auth_unit=f'slipstream-auth-{i}'
-    service_path=f'/etc/systemd/system/{service}.service'
+    # Recreate the actual tunnel record, not just its systemd unit.
+    domain=old['domain']; resolver=old['resolver']; port=int(old['port'])
+    cert=old['cert'] or ''; was_enabled=bool(old['enabled'])
+    old_id=int(old['id'])
+    old_units=(f'slipstream-auth-{old_id}',unit(old_id))
+    old_paths=(f'/etc/systemd/system/{unit(old_id)}.service',
+               f'/etc/systemd/system/slipstream-auth-{old_id}.service',
+               f'/etc/slipstream-panel/tunnels/{old_id}.json')
     try:
-        # Fully retire the old systemd units, then recreate the tunnel cleanly.
-        for old_unit in (auth_unit,service):
+        for old_unit in old_units:
             ctl('disable','--now',old_unit)
             ctl('stop',old_unit)
             ctl('kill','--kill-whom=all','--signal=SIGKILL',old_unit)
             if ctl('is-active','--quiet',old_unit).returncode==0:
-                raise RuntimeError(f'سرویس {old_unit} هنوز متوقف نشده است.')
+                raise RuntimeError(f'سرویس قدیمی {old_unit} هنوز فعال است.')
 
-        try: os.remove(service_path)
-        except FileNotFoundError: pass
+        for path in old_paths:
+            try: os.remove(path)
+            except FileNotFoundError: pass
         z=ctl('daemon-reload')
-        if z.returncode!=0:
+        if z.returncode:
             raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
 
+        c=db()
+        try:
+            c.execute('DELETE FROM traffic_stats WHERE tunnel_id=?',(old_id,))
+            c.execute('DELETE FROM tunnels WHERE id=?',(old_id,))
+            cur=c.execute(
+                """INSERT INTO tunnels
+                (domain,resolver,port,cert,enabled,health_state,last_started,
+                 auth_enabled,auth_username,auth_password,
+                 upstream_username,upstream_password,upstream_auth_disabled)
+                VALUES(?,?,?,?,?,?,?,0,'','','','',1)""",
+                (domain,resolver,port,cert,1 if was_enabled else 0,
+                 'recovering' if was_enabled else 'manual',time.time()))
+            new_id=cur.lastrowid
+            c.commit()
+            fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(new_id,)).fetchone()
+        except Exception:
+            c.rollback()
+            raise
+        finally:
+            c.close()
+
+        LOG_OFFSETS.pop(old_id,None)
+        SUSPECT_SINCE.pop(old_id,None)
         make_unit(fresh,reload_systemd=False)
         z=ctl('daemon-reload')
-        if z.returncode!=0:
+        if z.returncode:
             raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
+        ctl('reset-failed',unit(new_id))
 
-        ctl('reset-failed',service)
         if was_enabled:
             reset_log_cursor(fresh)
-            z=ctl('enable','--now',service)
-            if z.returncode!=0:
-                raise RuntimeError((z.stderr or z.stdout).strip() or 'اجرای مجدد تونل پس از ساخت سرویس جدید ناموفق بود.')
-            update(i,enabled=1,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-            flash('اعتبارنامه حذف شد؛ سرویس تونل کاملاً حذف و از نو ساخته و اجرا شد. تنظیمات Load Balancer حفظ شدند.')
+            z=ctl('enable','--now',unit(new_id))
+            if z.returncode:
+                err=(z.stderr or z.stdout).strip() or 'اجرای تونل جدید ناموفق بود.'
+                update(new_id,health_state='cooldown',retry_at=time.time()+COOLDOWN,
+                       last_error=err,last_down=time.time(),failure_count=1)
+                raise RuntimeError(err)
+            update(new_id,enabled=1,health_state='recovering',retry_at=None,
+                   last_started=time.time(),last_error='')
+            flash(f'تونل قبلی حذف و با شناسه جدید {new_id} دوباره ساخته و اجرا شد؛ دامنه، DNS، پورت و گواهی حفظ شدند و اطلاعات ورود پاک شدند.')
         else:
-            update(i,enabled=0,health_state='manual',retry_at=None,last_error='')
-            flash('اعتبارنامه حذف شد؛ سرویس تونل از نو ساخته شد و چون تونل قبلاً متوقف بود، همچنان متوقف باقی ماند.')
+            flash(f'تونل قبلی حذف و با شناسه جدید {new_id} دوباره ساخته شد؛ دامنه، DNS، پورت و گواهی حفظ شدند و تونل متوقف باقی ماند.')
     except Exception as e:
-        flash('اعتبارنامه در پنل حذف شد، اما حذف و ساخت مجدد سرویس کامل نشد: '+str(e))
+        flash('حذف و افزودن مجدد تونل کامل نشد: '+str(e))
     return redirect('/')
 
 
