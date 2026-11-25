@@ -1,9 +1,18 @@
+<div align="center">
+
 # Multi-Client Slipstream Panel with Load Balancer & DNS Scanner
 
-<details name="readme-language">
-<summary>🇬🇧 English</summary>
+**[🇬🇧 English Version](#-english-version)** • **[🇮🇷 نسخه فارسی](#-نسخه-فارسی)**
 
-<a id="english"></a>
+</div>
+
+---
+
+<a id="-english-version"></a>
+
+# 🇬🇧 English Version
+
+> **[🇮🇷 نسخه فارسی](#-نسخه-فارسی)**
 
 <img width="1408" height="768" alt="Slipstream Panel screenshot" src="https://github.com/user-attachments/assets/fed4fb2d-00fa-4fb8-a1ee-730c54b16757" />
 
@@ -126,15 +135,15 @@ For safety, external certificate files, firewall rules, unrelated services, and 
 ## 📄 License
 
 MIT License
-
 ---
 
-<p align="center">🇬🇧 English · <a href="#فارسی">🇮🇷 فارسی</a> · <a href="#multi-client-slipstream-panel-with-load-balancer--dns-scanner">⬆ Back to top</a></p>
+<a id="-نسخه-فارسی"></a>
 
-</details>
+<div dir="rtl">
 
-<details name="readme-language">
-<summary>🇮🇷 فارسی</summary>
+# 🇮🇷 نسخه فارسی
+
+> **[🇬🇧 Switch to English](#-english-version)**
 
 # پنل مدیریت چندکلاینتی Slipstream با لودبالانسر و اسکنر DNS
 
@@ -258,8 +267,4 @@ bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slips
 
 MIT License
 
----
-
-<p align="center"><a href="#english">🇬🇧 English</a> · 🇮🇷 فارسی · <a href="#پنل-مدیریت-چندکلاینتی-slipstream-با-لودبالانسر-و-اسکنر-dns">⬆ بازگشت به بالا</a></p>
-
-</details>
+</div>
