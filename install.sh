@@ -31,13 +31,11 @@ CONF=/etc/slipstream-panel
 BIN="${SLIPSTREAM_BIN:-/usr/local/bin/slipstream-client}"
 [[ "$BIN" == /* && "$BIN" != *[[:space:]]* ]] || { echo "SLIPSTREAM_BIN must be an absolute path without whitespace."; exit 1; }
 
-# Refuse to install an outdated or incomplete scanner implementation.
-# ICMP is informational only; every submitted resolver must reach the
-# Slipstream + authenticated SOCKS5 + Google HTTPS test stage.
-if ! grep -Fq 'candidates=list(resolvers)' "$SCRIPT_DIR/app.py" ||
-   ! grep -Fq 'ICMP is informational only' "$SCRIPT_DIR/app.py"; then
-  echo "ERROR: app.py does not contain the ICMP-independent DNS scanner fix."
-  echo "Please download/clone the latest repository version and run install.sh again."
+# Verify that stage two only tests DNS resolvers that replied to ICMP in stage one.
+if ! grep -Fq "ping_success={item['resolver'] for item in DNS_SCAN_STATE['ping_results'] if item.get('ok')}" "$SCRIPT_DIR/app.py" ||
+   ! grep -Fq 'candidates=[resolver for resolver in resolvers if resolver in ping_success]' "$SCRIPT_DIR/app.py"; then
+  echo "ERROR: app.py does not contain the ping-filtered two-stage DNS scanner."
+  echo "Please download the latest repository version and run install.sh again."
   exit 1
 fi
 
@@ -111,7 +109,7 @@ fi
 
 # Always deploy the app.py shipped beside this installer (including scanner fixes).
 install -m 0750 "$SCRIPT_DIR/app.py" "$APP/app.py"
-echo "Installed DNS scanner: ICMP-independent resolver testing enabled."
+echo "Installed DNS scanner: stage two is limited to IPs that passed stage-one ping."
 
 # Install the bundled Slipstream executable from the repository root.
 if [[ -f "$SCRIPT_DIR/slipstream" ]]; then
