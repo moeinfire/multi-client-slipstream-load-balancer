@@ -1413,11 +1413,32 @@ def upstream_auth_edit(i):
 def upstream_auth_clear(i):
     check_csrf()
     c=db()
-    r=c.execute('SELECT id FROM tunnels WHERE id=?',(i,)).fetchone()
+    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
     if not r: abort(404)
-    update(i,upstream_username='',upstream_password='',upstream_auth_disabled=1)
-    flash('اعتبارنامه SOCKS5 مقصد این تونل حذف و احراز هویت مقصد برای همین تونل غیرفعال شد؛ اعتبارنامه پیش‌فرض لودبالانسر برای این تونل استفاده نخواهد شد.')
+
+    # Clear both current upstream credentials and any legacy per-tunnel
+    # inbound-auth fields, so an old SOCKS5 gateway cannot keep requiring
+    # credentials after the user explicitly removes them.
+    update(i,upstream_username='',upstream_password='',upstream_auth_disabled=1,
+           auth_enabled=0,auth_username='',auth_password='')
+
+    c=db()
+    fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
+    c.close()
+    try:
+        # Rebuild the tunnel unit with authentication disabled. make_unit()
+        # also stops/disables and removes any legacy per-tunnel auth gateway.
+        make_unit(fresh)
+        if fresh['enabled']:
+            reset_log_cursor(fresh)
+            z=ctl('restart',unit(i))
+            if z.returncode!=0:
+                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
+            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
+        flash('نام کاربری و رمز این تونل کاملاً حذف شد؛ احراز هویت ورودی و مقصد غیرفعال شد. اعتبارنامه پیش‌فرض لودبالانسر نیز برای این تونل استفاده نمی‌شود.')
+    except Exception as e:
+        flash('اطلاعات ورود حذف شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
     return redirect('/')
 
 @app.post('/dns/<int:i>')
