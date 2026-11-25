@@ -235,9 +235,9 @@ echo "Slipstream Panel installed."
 SERVER_IP="$(curl -4fsS --connect-timeout 3 --max-time 5 https://api.ipify.org 2>/dev/null || true)"
 if [[ -z "$SERVER_IP" ]]; then SERVER_IP="$(hostname -I 2>/dev/null | cut -d " " -f1)"; fi
 PANEL_URL="http://${SERVER_IP:-SERVER_IP}:${PANEL_PORT}/${PANEL_PATH}/"
-printf "%s\\n" "${GREEN}╔══════════════════════════════════════════════════════════════════╗${RESET}"
-printf "%s\\n" "${GREEN}║ ${BOLD}${YELLOW}${PANEL_URL}${RESET}${GREEN} ║${RESET}"
-printf "%s\\n" "${GREEN}╚══════════════════════════════════════════════════════════════════╝${RESET}"
+printf "%s\n" "${GREEN}╔══════════════════════════════════════════════════════════════════╗${RESET}"
+printf "%s\n" "${GREEN}║ ${BOLD}${YELLOW}${PANEL_URL}${RESET}${GREEN} ║${RESET}"
+printf "%s\n" "${GREEN}╚══════════════════════════════════════════════════════════════════╝${RESET}"
 if [[ "${GENERATED_PASSWORD:-0}" == 1 ]]; then
   echo "Generated admin password: $ADMIN_PASSWORD"
 else
