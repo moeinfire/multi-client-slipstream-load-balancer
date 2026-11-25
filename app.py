@@ -326,28 +326,28 @@ class LBHandler(socketserver.BaseRequestHandler):
             if greeting[0]!=5 or greeting[1]<1:
                 return
             methods=lb_recv_exact(client,greeting[1])
-            # The load balancer itself does not request credentials.
-            # Credentials are configured per tunnel and used only upstream.
-            if 0 in methods:
-                client.sendall(b'\x05\x00')
-            elif 2 in methods:
-                # Compatibility for SOCKS5 clients configured with credentials:
-                # accept RFC1929 at the LB edge, but do not forward these
-                # client-supplied values to the destination tunnel.
+            # Accept standard SOCKS5 no-auth and RFC1929. Preserve client
+            # credentials so they can be passed through to the selected tunnel
+            # when no tunnel/LB destination credentials are configured.
+            client_username=None
+            client_password=None
+            if 2 in methods:
                 client.sendall(b'\x05\x02')
                 if lb_recv_exact(client,1)!=b'\x01':
                     return
                 ulen=lb_recv_exact(client,1)[0]
-                if not ulen:
+                if not 1<=ulen<=255:
                     client.sendall(b'\x01\x01')
                     return
-                lb_recv_exact(client,ulen)
+                client_username=lb_recv_exact(client,ulen)
                 plen=lb_recv_exact(client,1)[0]
-                if not plen:
+                if not 1<=plen<=255:
                     client.sendall(b'\x01\x01')
                     return
-                lb_recv_exact(client,plen)
+                client_password=lb_recv_exact(client,plen)
                 client.sendall(b'\x01\x00')
+            elif 0 in methods:
+                client.sendall(b'\x05\x00')
             else:
                 client.sendall(b'\x05\xff')
                 return
@@ -370,7 +370,11 @@ class LBHandler(socketserver.BaseRequestHandler):
             # Otherwise a cleared LB default disables auth only when the tunnel has no own credentials.
             tunnel_has_credentials=bool(backend['upstream_username'] and backend['upstream_password'])
             lb_auth_disabled=get_setting('lb_upstream_auth_disabled','0')=='1'
-            force_no_auth=bool(backend['upstream_auth_disabled']) or (lb_auth_disabled and not tunnel_has_credentials)
+            lb_username=get_setting('lb_upstream_username','') or ''
+            lb_password=get_setting('lb_upstream_password','') or ''
+            lb_has_credentials=bool(lb_username and lb_password and not lb_auth_disabled)
+            client_has_credentials=bool(client_username and client_password)
+            force_no_auth=bool(backend['upstream_auth_disabled']) or not (tunnel_has_credentials or lb_has_credentials or client_has_credentials)
             if force_no_auth:
                 upstream.sendall(b'\x05\x01\x00')
             else:
@@ -380,8 +384,15 @@ class LBHandler(socketserver.BaseRequestHandler):
                 lb_send_failure(client,1)
                 return
             if selected[1]==2:
-                backend_username=(backend['upstream_username'] or '') if tunnel_has_credentials else (get_setting('lb_upstream_username','') or '')
-                backend_password=(backend['upstream_password'] or '') if tunnel_has_credentials else (get_setting('lb_upstream_password','') or '')
+                if tunnel_has_credentials:
+                    backend_username=backend['upstream_username'] or ''
+                    backend_password=backend['upstream_password'] or ''
+                elif lb_has_credentials:
+                    backend_username=lb_username
+                    backend_password=lb_password
+                else:
+                    backend_username=client_username.decode('utf-8')
+                    backend_password=client_password.decode('utf-8')
                 backend_user=backend_username.encode('utf-8')
                 backend_pass=backend_password.encode('utf-8')
                 if not (1<=len(backend_user)<=255 and 1<=len(backend_pass)<=255):
