@@ -115,7 +115,7 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 <div class="card"><h3>🌐 مدیریت DNS کلی</h3><form method="post" action="/dns/global"><input type="hidden" name="csrf" value="{{csrf}}"><label>DNS Resolverهای عمومی (هر خط یک مورد، فرمت IP:PORT)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea><div class="actions" style="margin-top:12px"><button class="gray" name="mode" value="save">ذخیره به‌عنوان DNS پیش‌فرض</button><button class="green" name="mode" value="apply" onclick="return confirm('DNSهای واردشده روی تمام تونل‌ها اعمال و تونل‌های فعال به‌ترتیب ری‌استارت می‌شوند. ادامه می‌دهید؟')">اعمال روی همه تونل‌ها</button></div></form><div class="hint" style="margin-top:12px">ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد. «اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند. برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.</div></div>
 <div class="card"><h3>＋ افزودن دامنه</h3><form method="post" action="/add"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه</label><input name="domain" placeholder="t.example.com" required></div><div><label>DNS Resolverها (هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت محلی (اختیاری)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="خودکار"></div><div><label>گواهی PEM (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label>اعتبارنامه SOCKS5 مقصد این تونل</label><input name="upstream_username" placeholder="نام کاربری SOCKS5 خارجی"><input name="upstream_password" type="password" placeholder="رمز SOCKS5 خارجی"></div></div><p><button>افزودن و اجرای تونل</button></p></form><div class="hint">DNSها به شکل گزینه‌های تکرارشونده <code>--resolver</code> اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».</div></div>
 <div class="card"><h3>＋ افزودن گروهی دامنه‌ها</h3><form method="post" action="/add/bulk"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div style="grid-column:1/-1"><label>فهرست دامنه‌ها (هر خط یک دامنه)</label><textarea name="domains" rows="7" placeholder="t1.example.com&#10;t2.example.com&#10;t3.example.com" required></textarea></div><div><label>DNS Resolverها (مشترک برای همه، هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت شروع (اختیاری؛ پورت‌های بعدی به‌ترتیب تخصیص می‌یابند)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="تخصیص خودکار"></div><div><label>گواهی PEM مشترک (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label>اعتبارنامه SOCKS5 مقصد برای همه تونل‌های این گروه</label><input name="upstream_username" placeholder="نام کاربری SOCKS5 خارجی مشترک"><input name="upstream_password" type="password" placeholder="رمز SOCKS5 خارجی مشترک"></div></div><p><button class="green">افزودن و اجرای گروهی</button></p></form><div class="hint">حداکثر ۵۰۰ دامنه در هر بار. دامنه‌های نامعتبر، تکراری یا دارای پورت غیرقابل‌استفاده پیش از ثبت بررسی می‌شوند. پورت‌ها برای هر تونل یکتا هستند و سرویس‌ها یکی‌یکی راه‌اندازی می‌شوند.</div></div>
-<div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div><div><label>نام کاربری SOCKS5 مقصد لودبالانسر</label><input name="lb_upstream_username" value="{{lb_upstream_username}}" placeholder="نام کاربری SOCKS5 خارجی" autocomplete="off"><input name="lb_upstream_password" type="password" placeholder="{% if lb_upstream_password %}برای تغییر رمز وارد کنید{% else %}رمز SOCKS5 خارجی{% endif %}" autocomplete="new-password"></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><form method="post" action="/lb/clear-upstream" onsubmit="return confirm('نام کاربری و رمز SOCKS5 مقصد پیش‌فرض لودبالانسر کاملاً حذف شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger" type="submit">حذف کامل یوزر و پسورد SOCKS5 لودبالانسر</button></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید با روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. اعتبارنامه هر تونل اولویت دارد؛ اگر برای تونل اعتبارنامه‌ای ثبت نشده باشد، از اعتبارنامه پیش‌فرض SOCKS5 مقصد لودبالانسر استفاده می‌شود.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div><div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>اعتبارنامه SOCKS5 مقصد</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><form class="dnsform" method="post" action="/upstream-auth/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><input name="upstream_username" placeholder="نام کاربری SOCKS5 خارجی" value="{{t.upstream_username}}" autocomplete="off"><input name="upstream_password" type="password" placeholder="{% if t.upstream_password %}برای تغییر رمز وارد کنید{% else %}رمز SOCKS5 خارجی{% endif %}" autocomplete="new-password"><button class="gray">ذخیره اعتبارنامه</button></form><form method="post" action="/upstream-auth/{{t.id}}/clear" onsubmit="return confirm('اعتبارنامه SOCKS5 مقصد این تونل کاملاً حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger" type="submit">حذف کامل یوزر و پسورد و غیرفعال‌سازی احراز هویت مقصد</button></form><hr><form class="dnsform" method="post" action="/direct-auth/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><input name="direct_auth_username" placeholder="نام کاربری SOCKS5 ورودی این تونل" value="{{t.direct_auth_username}}" autocomplete="off"><input name="direct_auth_password" type="password" placeholder="{% if t.direct_auth_password %}برای تغییر رمز وارد کنید{% else %}رمز SOCKS5 ورودی این تونل{% endif %}" autocomplete="new-password"><button class="gray">ذخیره احراز هویت پورت مستقیم</button></form><form method="post" action="/direct-auth/{{t.id}}/clear" onsubmit="return confirm('احراز هویت ورودی پورت مستقیم این تونل غیرفعال شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger" type="submit">حذف یوزر و پسورد پورت مستقیم</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
+<div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div><div><label>نام کاربری SOCKS5 مقصد لودبالانسر</label><input name="lb_upstream_username" value="{{lb_upstream_username}}" placeholder="نام کاربری SOCKS5 خارجی" autocomplete="off"><input name="lb_upstream_password" type="password" placeholder="{% if lb_upstream_password %}برای تغییر رمز وارد کنید{% else %}رمز SOCKS5 خارجی{% endif %}" autocomplete="new-password"></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><form method="post" action="/lb/clear-upstream" onsubmit="return confirm('نام کاربری و رمز SOCKS5 مقصد پیش‌فرض لودبالانسر کاملاً حذف شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger" type="submit">حذف کامل یوزر و پسورد SOCKS5 لودبالانسر</button></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید با روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. اعتبارنامه هر تونل اولویت دارد؛ اگر برای تونل اعتبارنامه‌ای ثبت نشده باشد، از اعتبارنامه پیش‌فرض SOCKS5 مقصد لودبالانسر استفاده می‌شود.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div><div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>اعتبارنامه SOCKS5 مقصد</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><form class="dnsform" method="post" action="/upstream-auth/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><input name="upstream_username" placeholder="نام کاربری SOCKS5 این تونل" value="{{t.upstream_username}}" autocomplete="off"><input name="upstream_password" type="password" placeholder="{% if t.upstream_password %}برای تغییر رمز وارد کنید{% else %}رمز SOCKS5 این تونل{% endif %}" autocomplete="new-password"><button class="gray">ذخیره یوزر و پسورد تونل</button></form><form method="post" action="/upstream-auth/{{t.id}}/clear" onsubmit="return confirm('اعتبارنامه SOCKS5 مقصد این تونل کاملاً حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger" type="submit">حذف کامل یوزر و پسورد و غیرفعال‌سازی احراز هویت مقصد</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
 <div class="card"><h3>منطق پایش سلامت</h3><div class="hint">هر ۱ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود. پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛ اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود. در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود. این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.</div></div>
 <script>
 function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
@@ -547,9 +547,9 @@ def make_unit(r, reload_systemd=True):
     # With per-tunnel auth enabled, Slipstream listens privately and the
     # SOCKS gateway validates/injects credentials. With auth disabled,
     # remove the gateway entirely and let Slipstream expose the SOCKS port.
-    auth_enabled=bool(r['auth_enabled'] or r['direct_auth_enabled'])
-    auth_username=(r['auth_username'] or '') if r['auth_enabled'] else (r['direct_auth_username'] or '')
-    auth_password=(r['auth_password'] or '') if r['auth_enabled'] else (r['direct_auth_password'] or '')
+    auth_enabled=bool(r['upstream_username'] and r['upstream_password'] and not r['upstream_auth_disabled'])
+    auth_username=r['upstream_username'] or ''
+    auth_password=r['upstream_password'] or ''
     public_port=int(r['port'])
     internal_port=public_port+20000 if auth_enabled else public_port
     args=[BIN,'--domain',r['domain']]
@@ -578,7 +578,7 @@ def make_unit(r, reload_systemd=True):
     if auth_enabled:
         os.makedirs(cfgdir,mode=0o700,exist_ok=True);os.chmod(cfgdir,0o700)
         with open(cfg,'w',encoding='utf-8') as f:
-            json.dump({'listen_host':LOCAL_HOST,'listen_port':public_port,'upstream_host':LOCAL_HOST,'upstream_port':internal_port,'auth_enabled':True,'username':auth_username,'password':auth_password,'bypass_loopback':True},f)
+            json.dump({'listen_host':LOCAL_HOST,'listen_port':public_port,'upstream_host':LOCAL_HOST,'upstream_port':internal_port,'auth_enabled':True,'username':auth_username,'password':auth_password},f)
         os.chmod(cfg,0o600)
         gateway=['[Unit]',f'Description=SOCKS5 authentication gateway for {r["domain"]}',f'After={unit(r["id"])}.service',f'PartOf={unit(r["id"])}.service','','[Service]','Type=simple','IPAccounting=yes',f'ExecStart=/usr/bin/python3 /opt/slipstream-panel/socks5-gateway.py {cfg}','Restart=always','RestartSec=2','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={cfgdir}','','[Install]','WantedBy=multi-user.target','']
         with open(gateway_path,'w') as f:f.write('\n'.join(gateway))
@@ -1388,16 +1388,13 @@ def upstream_auth_edit(i):
     if bool(username)!=bool(password) or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
         flash('نام کاربری و رمز SOCKS5 مقصد باید هر دو معتبر و حداکثر ۲۵۵ بایت باشند.')
         return redirect('/')
-    # Retire the old per-tunnel inbound auth gateway; this field now stores
-    # only the remote SOCKS5 destination credentials for this tunnel.
+    # One credential pair protects the direct tunnel port and is also
+    # used by the Load Balancer when it connects to this tunnel.
     update(i,upstream_username=username,upstream_password=password,upstream_auth_disabled=0,auth_enabled=0,auth_username='',auth_password='')
     c=db()
     r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
     try:
-        auth_unit=f'slipstream-auth-{i}'
-        ctl('stop',auth_unit)
-        ctl('disable',auth_unit)
         make_unit(r)
         if r['enabled']:
             reset_log_cursor(r)
@@ -1405,7 +1402,7 @@ def upstream_auth_edit(i):
             if z.returncode!=0:
                 raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
             update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        flash('اعتبارنامه SOCKS5 مقصد ذخیره شد؛ احراز هویت ورودی قدیمی این تونل نیز غیرفعال شد.')
+        flash('یوزر و پسورد SOCKS5 تونل ذخیره شد و برای پورت مستقیم و اتصال لودبالانسر استفاده می‌شود.')
     except Exception as e:
         flash('اعتبارنامه ذخیره شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
     return redirect('/')
@@ -1418,25 +1415,7 @@ def upstream_auth_clear(i):
     r=c.execute('SELECT id FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
     if not r: abort(404)
-    update(i,upstream_username='',upstream_password='',upstream_auth_disabled=1)
-    flash('اعتبارنامه SOCKS5 مقصد این تونل حذف و احراز هویت مقصد برای همین تونل غیرفعال شد؛ اعتبارنامه پیش‌فرض لودبالانسر برای این تونل استفاده نخواهد شد.')
-    return redirect('/')
-
-@app.post('/direct-auth/<int:i>')
-@require_login
-def direct_auth_edit(i):
-    check_csrf()
-    c=db()
-    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
-    if not r: abort(404)
-    username=request.form.get('direct_auth_username','').strip()
-    password=request.form.get('direct_auth_password','') or (r['direct_auth_password'] or '')
-    if bool(username)!=bool(password) or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
-        flash('نام کاربری و رمز SOCKS5 ورودی باید هر دو وارد شوند و حداکثر ۲۵۵ بایت باشند.')
-        return redirect('/')
-    update(i,direct_auth_enabled=1 if username and password else 0,
-           direct_auth_username=username,direct_auth_password=password)
+    update(i,upstream_username='',upstream_password='',upstream_auth_disabled=1,auth_enabled=0,auth_username='',auth_password='')
     c=db()
     r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
@@ -1448,34 +1427,9 @@ def direct_auth_edit(i):
             if z.returncode!=0:
                 raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
             update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        flash('احراز هویت SOCKS5 ورودی پورت مستقیم این تونل ذخیره شد.')
+        flash('یوزر و پسورد SOCKS5 این تونل حذف شد؛ احراز هویت پورت مستقیم غیرفعال شد.')
     except Exception as e:
-        flash('تنظیمات ذخیره شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
-    return redirect('/')
-
-@app.post('/direct-auth/<int:i>/clear')
-@require_login
-def direct_auth_clear(i):
-    check_csrf()
-    c=db()
-    r=c.execute('SELECT id FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
-    if not r: abort(404)
-    update(i,direct_auth_enabled=0,direct_auth_username='',direct_auth_password='')
-    c=db()
-    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
-    c.close()
-    try:
-        make_unit(r)
-        if r['enabled']:
-            reset_log_cursor(r)
-            z=ctl('restart',unit(i))
-            if z.returncode!=0:
-                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
-            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        flash('احراز هویت SOCKS5 پورت مستقیم این تونل غیرفعال شد.')
-    except Exception as e:
-        flash('تنظیمات حذف شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
+        flash('اطلاعات حذف شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
     return redirect('/')
 
 @app.post('/dns/<int:i>')
