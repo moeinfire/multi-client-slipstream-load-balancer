@@ -683,10 +683,9 @@ def _restore_tunnel_snapshot(snapshot):
     return row
 
 def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=False):
-    # Rebuild exactly one tunnel while preserving its domain, DNS, port,
-    # certificate, inbound-auth settings, and all other saved configuration.
-    # The lock prevents the health monitor or another panel request from
-    # mutating this tunnel while its systemd units and DB row are replaced.
+    # Credential clearing deliberately follows the same fresh-row semantics as
+    # deleting and adding the tunnel again. Keep only its identity/transport
+    # settings; reset per-tunnel inbound authentication to the /add defaults.
     with tunnel_mutation_lock():
         c=db()
         try:
@@ -716,40 +715,40 @@ def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=Fals
                 return old_id,False
             auth_disabled=0
 
-        replacement=dict(snapshot)
-        # Only destination SOCKS5 credentials change. Inbound SOCKS5 auth,
-        # domain, resolver list, local port, certificate and enabled state stay.
-        replacement.update(
-            upstream_username=new_user,
-            upstream_password=new_pass,
-            upstream_auth_disabled=auth_disabled,
-            health_state='recovering' if snapshot['enabled'] else 'manual',
-            retry_at=None,
-            last_started=time.time() if snapshot['enabled'] else snapshot.get('last_started'),
-            last_check=None,
-            last_error='',
-            failure_count=0,
-            last_down=None
-        )
+        enabled=int(snapshot.get('enabled',1))
+        now=time.time()
+        # Match /add's fresh database row defaults instead of copying stale
+        # runtime/auth state from the old row. Preserve domain, DNS, port, cert.
+        fresh_data={
+            'domain':snapshot['domain'],
+            'resolver':snapshot['resolver'],
+            'port':port,
+            'cert':snapshot.get('cert') or '',
+            'enabled':enabled,
+            'health_state':'recovering' if enabled else 'manual',
+            'last_started':now if enabled else snapshot.get('last_started'),
+            'upstream_username':new_user,
+            'upstream_password':new_pass,
+            'upstream_auth_disabled':auth_disabled
+        }
 
         new_id=None
-        stage='stopping and removing the previous tunnel'
+        stage='stopping and removing previous tunnel'
         try:
-            print(f'[TUNNEL-REBUILD] tunnel_id={old_id} stage={stage}',flush=True)
+            print(f'[TUNNEL-REBUILD] old_id={old_id} stage={stage}',flush=True)
             _remove_tunnel_runtime(snapshot)
 
-            stage='replacing the database row'
+            stage='creating a fresh tunnel database record'
             c=db()
             try:
                 c.execute('BEGIN IMMEDIATE')
                 new_id=int(c.execute('SELECT COALESCE(MAX(id),0)+1 FROM tunnels').fetchone()[0])
                 c.execute('DELETE FROM traffic_stats WHERE tunnel_id=?',(old_id,))
                 c.execute('DELETE FROM tunnels WHERE id=?',(old_id,))
-                data={k:v for k,v in replacement.items() if k!='id'}
-                cols=list(data)
+                cols=list(fresh_data)
                 c.execute(
                     'INSERT INTO tunnels (id,'+','.join(cols)+') VALUES (?,'+','.join('?' for _ in cols)+')',
-                    (new_id,)+tuple(data[k] for k in cols)
+                    (new_id,)+tuple(fresh_data[k] for k in cols)
                 )
                 c.commit()
             except Exception:
@@ -758,14 +757,14 @@ def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=Fals
             finally:
                 c.close()
 
-            stage='creating the replacement tunnel service'
+            stage='creating fresh systemd service'
             c=db()
             try:
                 fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(new_id,)).fetchone()
             finally:
                 c.close()
             if not fresh:
-                raise RuntimeError('Replacement tunnel row was not created')
+                raise RuntimeError('Fresh tunnel record was not created')
             make_unit(fresh,reload_systemd=False)
 
             stage='reloading systemd'
@@ -774,50 +773,52 @@ def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=Fals
                 raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
             ctl('reset-failed',unit(new_id))
 
-            if fresh['enabled']:
-                stage='starting the replacement tunnel'
+            if enabled:
+                stage='starting fresh tunnel service'
                 reset_log_cursor(fresh)
                 z=ctl('enable','--now',unit(new_id))
                 if z.returncode:
-                    raise RuntimeError((z.stderr or z.stdout).strip() or 'new service start failed')
+                    raise RuntimeError((z.stderr or z.stdout).strip() or 'new tunnel service failed to start')
                 if not active(new_id):
-                    raise RuntimeError('systemd returned success but the replacement tunnel is not active')
-                update(
-                    new_id,
-                    enabled=1,
-                    health_state='recovering',
-                    retry_at=None,
-                    last_started=time.time(),
-                    last_error=''
-                )
+                    raise RuntimeError('New tunnel service is not active after start')
+                update(new_id,enabled=1,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
             else:
-                stage='keeping the replacement tunnel stopped'
+                stage='leaving previously disabled tunnel stopped'
                 ctl('disable',unit(new_id))
                 update(new_id,enabled=0,health_state='manual',retry_at=None,last_error='')
 
-            stage='verifying the replacement configuration'
+            stage='verifying fresh tunnel settings'
             c=db()
             try:
                 verified=c.execute(
-                    'SELECT domain,resolver,port,cert,upstream_username,upstream_password,upstream_auth_disabled '
-                    'FROM tunnels WHERE id=?',(new_id,)
+                    'SELECT domain,resolver,port,cert,enabled,auth_enabled,auth_username,auth_password,'
+                    'upstream_username,upstream_password,upstream_auth_disabled FROM tunnels WHERE id=?',
+                    (new_id,)
                 ).fetchone()
             finally:
                 c.close()
             if not verified:
-                raise RuntimeError('Replacement tunnel disappeared from the database')
+                raise RuntimeError('Fresh tunnel record is missing')
             if (verified['domain']!=snapshot['domain'] or
                 verified['resolver']!=snapshot['resolver'] or
                 int(verified['port'])!=port or
                 (verified['cert'] or '')!=(snapshot.get('cert') or '') or
+                int(verified['auth_enabled'] or 0)!=0 or
+                (verified['auth_username'] or '')!='' or
+                (verified['auth_password'] or '')!='' or
                 (verified['upstream_username'] or '')!=new_user or
                 (verified['upstream_password'] or '')!=new_pass or
                 int(verified['upstream_auth_disabled'] or 0)!=auth_disabled):
-                raise RuntimeError('Replacement tunnel verification failed; saved settings did not match')
+                raise RuntimeError('Fresh tunnel verification failed: settings differ from the requested configuration')
 
             _forget_tunnel_runtime_state(old_id,port)
             _forget_tunnel_runtime_state(new_id,port)
-            print(f'[TUNNEL-REBUILD] SUCCESS old_id={old_id} new_id={new_id} domain={snapshot["domain"]} port={port} auth_disabled={auth_disabled}',flush=True)
+            print(
+                f'[TUNNEL-REBUILD] SUCCESS old_id={old_id} new_id={new_id} '
+                f'domain={snapshot["domain"]} port={port} fresh_auth_defaults=1 '
+                f'upstream_auth_disabled={auth_disabled}',
+                flush=True
+            )
             return new_id,True
 
         except Exception as error:
@@ -850,7 +851,11 @@ def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=Fals
                 message+='; rollback failed: '+rollback_error
             else:
                 message+='; previous tunnel restored'
-            print(f'[TUNNEL-REBUILD] FAILED old_id={old_id} stage={stage} error={error} rollback_error={rollback_error}',flush=True)
+            print(
+                f'[TUNNEL-REBUILD] FAILED old_id={old_id} stage={stage} '
+                f'error={error} rollback_error={rollback_error}',
+                flush=True
+            )
             raise RuntimeError(message) from error
 def delete_tunnel_fully(tunnel_id):
     with tunnel_mutation_lock():
