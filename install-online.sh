@@ -52,7 +52,7 @@ curl --fail --location --silent --show-error "$REPO_ARCHIVE" --output "$ARCHIVE"
 echo "Extracting project files..."
 tar -xzf "$ARCHIVE" --strip-components=1 -C "$SOURCE_DIR"
 
-for file in install.sh app.py slip-manager.py slipstream systemd/slip.service; do
+for file in install.sh app.py slip-manager.py systemd/slip.service; do
   if [[ ! -f "$SOURCE_DIR/$file" ]]; then
     echo "ERROR: Required project file is missing from the downloaded archive: $file"
     exit 1
