@@ -261,7 +261,7 @@ if [[ "${SLIPSTREAM_ENABLE_STANDALONE:-0}" == "1" ]]; then
   fi
 else
   echo "Standalone slip.service was installed but left disabled; the panel does not require it."
-  echo "Review systemd/slip.service and its target before enabling it manually."
+  echo "Review /etc/systemd/system/slip.service and its target before enabling it manually."
 fi
 
 echo
