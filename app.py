@@ -114,6 +114,7 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 <div class="grid"><div class="stat">کل تونل‌ها<div class="num">{{tunnels|length}}</div></div><div class="stat">متصل<div class="num" id="healthy">{{healthy}}</div></div><div class="stat">در انتظار اتصال مجدد<div class="num" id="cooling">{{cooling}}</div></div><div class="stat">محدوده پورت<div class="num">{{pmin}}–{{pmax}}</div></div></div>
 <div class="card"><h3>🌐 مدیریت DNS کلی</h3><form method="post" action="/dns/global"><input type="hidden" name="csrf" value="{{csrf}}"><label>DNS Resolverهای عمومی (هر خط یک مورد، فرمت IP:PORT)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea><div class="actions" style="margin-top:12px"><button class="gray" name="mode" value="save">ذخیره به‌عنوان DNS پیش‌فرض</button><button class="green" name="mode" value="apply" onclick="return confirm('DNSهای واردشده روی تمام تونل‌ها اعمال و تونل‌های فعال به‌ترتیب ری‌استارت می‌شوند. ادامه می‌دهید؟')">اعمال روی همه تونل‌ها</button></div></form><div class="hint" style="margin-top:12px">ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد. «اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند. برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.</div></div>
 <div class="card"><h3>＋ افزودن دامنه</h3><form method="post" action="/add"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه</label><input name="domain" placeholder="t.example.com" required></div><div><label>DNS Resolverها (هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت محلی (اختیاری)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="خودکار"></div><div><label>گواهی PEM (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div></div><p><button>افزودن و اجرای تونل</button></p></form><div class="hint">DNSها به شکل گزینه‌های تکرارشونده <code>--resolver</code> اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».</div></div>
+<div class="card"><h3>＋ افزودن گروهی دامنه‌ها</h3><form method="post" action="/add/bulk"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div style="grid-column:1/-1"><label>فهرست دامنه‌ها (هر خط یک دامنه)</label><textarea name="domains" rows="7" placeholder="t1.example.com&#10;t2.example.com&#10;t3.example.com" required></textarea></div><div><label>DNS Resolverها (مشترک برای همه، هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت شروع (اختیاری؛ پورت‌های بعدی به‌ترتیب تخصیص می‌یابند)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="تخصیص خودکار"></div><div><label>گواهی PEM مشترک (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div></div><p><button class="green">افزودن و اجرای گروهی</button></p></form><div class="hint">حداکثر ۵۰۰ دامنه در هر بار. دامنه‌های نامعتبر، تکراری یا دارای پورت غیرقابل‌استفاده پیش از ثبت بررسی می‌شوند. پورت‌ها برای هر تونل یکتا هستند و سرویس‌ها یکی‌یکی راه‌اندازی می‌شوند.</div></div>
 <div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود. احراز هویت SOCKS همانند تونل مقصد عبور داده می‌شود؛ این بخش دست‌دهی SOCKS5 را تغییر نمی‌دهد.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div>
 <div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
 <div class="card"><h3>منطق پایش سلامت</h3><div class="hint">هر ۱ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود. پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛ اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود. در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود. این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.</div></div>
@@ -1086,6 +1087,110 @@ def add():
             flash('دامنه ثبت شد ولی اجرا ناموفق بود: '+err)
     except Exception as e:flash('خطا: '+str(e))
     return redirect('/')
+@app.post('/add/bulk')
+@require_login
+def add_bulk():
+    check_csrf()
+    raw_domains=request.form.get('domains','')
+    domains=[]
+    for line in raw_domains.replace(',','\n').splitlines():
+        domain=line.strip().lower().rstrip('.')
+        if domain and domain not in domains:
+            domains.append(domain)
+    if not domains:
+        flash('حداقل یک دامنه وارد کن.')
+        return redirect('/')
+    if len(domains)>500:
+        flash('در هر بار حداکثر ۵۰۰ دامنه مجاز است.')
+        return redirect('/')
+    invalid=[d for d in domains if not valid_domain(d)]
+    if invalid:
+        flash('دامنه نامعتبر: '+', '.join(invalid[:10])+(' و موارد بیشتر' if len(invalid)>10 else ''))
+        return redirect('/')
+    cert=request.form.get('cert','').strip()
+    if cert and (not cert.startswith('/') or not os.path.isfile(cert)):
+        flash('فایل گواهی معتبر نیست.')
+        return redirect('/')
+    try:
+        dns=parse_resolvers(request.form.get('resolvers','') or get_setting('global_resolvers','1.1.1.1:53'))
+    except ValueError as e:
+        flash(str(e))
+        return redirect('/')
+    c=db()
+    existing={x[0] for x in c.execute('SELECT domain FROM tunnels')}
+    duplicates=[d for d in domains if d in existing]
+    if duplicates:
+        c.close()
+        flash('این دامنه‌ها از قبل ثبت شده‌اند: '+', '.join(duplicates[:10])+(' و موارد بیشتر' if len(duplicates)>10 else ''))
+        return redirect('/')
+    used={int(x[0]) for x in c.execute('SELECT port FROM tunnels')}
+    start_raw=request.form.get('port','').strip()
+    if start_raw:
+        try:
+            start_port=int(start_raw)
+        except ValueError:
+            c.close()
+            flash('پورت شروع معتبر نیست.')
+            return redirect('/')
+        if start_port<PMIN or start_port>PMAX:
+            c.close()
+            flash('پورت شروع خارج از محدوده مجاز است.')
+            return redirect('/')
+        ports=list(range(start_port,PMAX+1))
+        ports=[p for p in ports if p not in used]
+        if len(ports)<len(domains):
+            c.close()
+            flash('از پورت شروع انتخاب‌شده، تعداد پورت آزاد کافی برای همه دامنه‌ها وجود ندارد.')
+            return redirect('/')
+        ports=ports[:len(domains)]
+    else:
+        ports=[p for p in range(PMIN,PMAX+1) if p not in used][:len(domains)]
+        if len(ports)<len(domains):
+            c.close()
+            flash('تعداد پورت آزاد برای ثبت همه دامنه‌ها کافی نیست.')
+            return redirect('/')
+    created=[]
+    try:
+        now=time.time()
+        for domain,port in zip(domains,ports):
+            cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started) VALUES(?,?,?,?,1,?,?)',
+                          (domain,'\n'.join(dns),port,cert,'recovering',now))
+            created.append((cur.lastrowid,domain,port))
+        c.commit()
+    except Exception as e:
+        c.rollback()
+        c.close()
+        flash('ثبت گروهی انجام نشد و هیچ دامنه‌ای ثبت نشد: '+str(e))
+        return redirect('/')
+    c.close()
+    succeeded=0
+    failed=[]
+    for tunnel_id,domain,port in created:
+        try:
+            c=db()
+            row=c.execute('SELECT * FROM tunnels WHERE id=?',(tunnel_id,)).fetchone()
+            c.close()
+            make_unit(row)
+            reset_log_cursor(row)
+            result=ctl('enable','--now',unit(tunnel_id))
+            now=time.time()
+            if result.returncode==0:
+                update(tunnel_id,enabled=1,health_state='recovering',retry_at=None,last_started=now,last_check=now,last_error='')
+                succeeded+=1
+            else:
+                err=(result.stderr or result.stdout).strip() or 'systemd نتوانست سرویس را اجرا کند.'
+                update(tunnel_id,enabled=1,health_state='cooldown',retry_at=now+COOLDOWN,last_started=now,last_down=now,last_error=err,failure_count=1)
+                failed.append(domain+': '+err)
+        except Exception as e:
+            failed.append(domain+': '+str(e))
+    summary='افزودن گروهی پایان یافت: '+str(len(created))+' دامنه ثبت شد؛ '+str(succeeded)+' تونل با موفقیت راه‌اندازی شد.'
+    if failed:
+        summary+=' خطا در راه‌اندازی: '+' | '.join(failed[:5])
+        if len(failed)>5:
+            summary+=' | و '+str(len(failed)-5)+' مورد دیگر'
+    flash(summary)
+    return redirect('/')
+
 @app.post('/dns/<int:i>')
 @require_login
 def dns_edit(i):
