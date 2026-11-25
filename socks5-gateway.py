@@ -102,40 +102,17 @@ class Gateway:
                 return
 
             greeting = recv_exact(client, 2)
-            if greeting[0] != 5 or greeting[1] == 0:
+            if greeting[0] != 5 or greeting[1] < 1:
                 return
             client_methods = list(recv_exact(client, greeting[1]))
 
-            # Client-side authentication is independent of the method used
-            # by the remote SOCKS server.
             if self.panel_auth:
+                # Match the Load Balancer's RFC1929 flow: negotiate username/
+                # password with the client first, validate locally, then
+                # connect to the private Slipstream SOCKS listener using no-auth.
                 if 2 not in client_methods:
                     client.sendall(b"\x05\xff")
                     return
-                upstream_methods = [2, 0]
-            else:
-                upstream_methods = [
-                    method for method in (2, 0) if method in client_methods
-                ]
-                if not upstream_methods:
-                    client.sendall(b"\x05\xff")
-                    return
-
-            upstream = socket.create_connection(
-                (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
-                timeout=15
-            )
-            upstream.settimeout(30)
-            upstream.sendall(bytes((5, len(upstream_methods), *upstream_methods)))
-            upstream_reply = recv_exact(upstream, 2)
-            if upstream_reply[0] != 5 or upstream_reply[1] not in upstream_methods:
-                client.sendall(b"\x05\xff")
-                return
-            upstream_method = upstream_reply[1]
-
-            if self.panel_auth:
-                # Always require the panel's credentials from the client,
-                # even when the remote SOCKS endpoint itself is No Auth.
                 client.sendall(b"\x05\x02")
                 client_username, client_password = read_credentials(client)
                 valid = (
@@ -145,22 +122,37 @@ class Gateway:
                 if not valid:
                     client.sendall(b"\x01\x01")
                     return
+                client.sendall(b"\x01\x00")
 
-                if upstream_method == 2:
-                    # Remote SOCKS requires auth: use the credentials saved
-                    # in the panel, not a second set supplied by the client.
-                    send_credentials(upstream, self.username, self.password)
-                    auth_reply = recv_exact(upstream, 2)
-                    client.sendall(auth_reply)
-                    if auth_reply != b"\x01\x00":
-                        return
-                else:
-                    # Remote SOCKS selected No Auth; local panel auth has
-                    # already been checked, so acknowledge it locally.
-                    client.sendall(b"\x01\x00")
+                upstream = socket.create_connection(
+                    (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
+                    timeout=15
+                )
+                upstream.settimeout(30)
+                upstream.sendall(b"\x05\x01\x00")
+                upstream_reply = recv_exact(upstream, 2)
+                if upstream_reply != b"\x05\x00":
+                    return
             else:
-                # No panel credentials: expose the remote server's selected
-                # method to the client and pass RFC1929 credentials through.
+                # Compatibility path when this gateway is used without local
+                # credentials: pass through the SOCKS method negotiation.
+                upstream_methods = [
+                    method for method in (2, 0) if method in client_methods
+                ]
+                if not upstream_methods:
+                    client.sendall(b"\x05\xff")
+                    return
+                upstream = socket.create_connection(
+                    (self.cfg["upstream_host"], int(self.cfg["upstream_port"])),
+                    timeout=15
+                )
+                upstream.settimeout(30)
+                upstream.sendall(bytes((5, len(upstream_methods), *upstream_methods)))
+                upstream_reply = recv_exact(upstream, 2)
+                if upstream_reply[0] != 5 or upstream_reply[1] not in upstream_methods:
+                    client.sendall(b"\x05\xff")
+                    return
+                upstream_method = upstream_reply[1]
                 client.sendall(bytes((5, upstream_method)))
                 if upstream_method == 2:
                     client_username, client_password = read_credentials(client)
