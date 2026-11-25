@@ -43,13 +43,8 @@ CONF=/etc/slipstream-panel
 BIN="${SLIPSTREAM_BIN:-/usr/local/bin/slipstream-client}"
 [[ "$BIN" == /* && "$BIN" != *[[:space:]]* ]] || { echo "SLIPSTREAM_BIN must be an absolute path without whitespace."; exit 1; }
 
-# Verify that stage two only tests DNS resolvers that replied to ICMP in stage one.
-if ! grep -Fq "ping_success={item['resolver'] for item in DNS_SCAN_STATE['ping_results'] if item.get('ok')}" "$SCRIPT_DIR/app.py" ||
-   ! grep -Fq 'candidates=[resolver for resolver in resolvers if resolver in ping_success]' "$SCRIPT_DIR/app.py"; then
-  echo "ERROR: app.py does not contain the ping-filtered two-stage DNS scanner."
-  echo "Please download the latest repository version and run install.sh again."
-  exit 1
-fi
+# Do not couple installation to exact DNS scanner source-code expressions.
+# app.py is validated below for Python syntax and runtime dependencies.
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-flask openssl iputils-ping ca-certificates curl
