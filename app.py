@@ -10,7 +10,7 @@ PMIN=int(os.environ.get('PORT_MIN','10800')); PMAX=int(os.environ.get('PORT_MAX'
 PANEL_HOST=os.environ.get('PANEL_HOST','0.0.0.0'); PANEL_PORT=int(os.environ.get('PANEL_PORT','18080'))
 PANEL_BASE_PATH=open('/etc/slipstream-panel/base-path').read().strip().rstrip('/') if os.path.exists('/etc/slipstream-panel/base-path') else ''
 if PANEL_BASE_PATH and not re.fullmatch(r'/[A-Za-z0-9_-]{4,64}', PANEL_BASE_PATH): raise RuntimeError('Invalid panel base path')
-LOCAL_HOST='127.0.0.1'; CHECK=1; COOLDOWN=300; ERROR_GRACE_SECONDS=30
+LOCAL_HOST='127.0.0.1'; CHECK=1; COOLDOWN=300; ERROR_GRACE_SECONDS=30; START_GRACE_SECONDS=30
 LOGDIR='/var/log/slipstream-panel'
 LOG_OFFSETS={}
 SUSPECT_SINCE={}
@@ -600,6 +600,13 @@ def monitor():
                 if immediate_error:
                     fail_tunnel(r,immediate_error,now);continue
                 if not active(i):
+                    # Give a newly started systemd service time to enter active state.
+                    # During this grace period keep the UI in "checking" instead of cooldown.
+                    started=r['last_started'] or now
+                    if now-started<START_GRACE_SECONDS:
+                        if r['health_state']!='recovering':
+                            update(i,health_state='recovering',retry_at=None,last_check=now)
+                        continue
                     fail_tunnel(r,'پردازش Slipstream خارج شد یا متوقف شد.',now);continue
                 suspect=SUSPECT_SINCE.get(i)
                 if suspect is not None and time.monotonic()-suspect>=ERROR_GRACE_SECONDS:
@@ -1068,7 +1075,15 @@ def add():
     cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started) VALUES(?,?,?,?,1,?,?)',(domain,'\n'.join(dns),port,cert,'recovering',time.time()))
     c.commit();i=cur.lastrowid;r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
     try:
-        make_unit(r);reset_log_cursor(r);z=ctl('enable','--now',unit(i));flash(f'دامنه ثبت شد؛ پورت {port}' if z.returncode==0 else 'ثبت شد ولی اجرا ناموفق بود: '+(z.stderr or z.stdout).strip())
+        make_unit(r);reset_log_cursor(r);z=ctl('enable','--now',unit(i))
+        now=time.time()
+        if z.returncode==0:
+            update(i,enabled=1,health_state='recovering',retry_at=None,last_started=now,last_check=now,last_error='')
+            flash(f'دامنه ثبت شد؛ پورت {port}؛ در حال بررسی اتصال')
+        else:
+            err=(z.stderr or z.stdout).strip() or 'systemd نتوانست سرویس را اجرا کند.'
+            update(i,enabled=1,health_state='cooldown',retry_at=now+COOLDOWN,last_started=now,last_down=now,last_error=err,failure_count=1)
+            flash('دامنه ثبت شد ولی اجرا ناموفق بود: '+err)
     except Exception as e:flash('خطا: '+str(e))
     return redirect('/')
 @app.post('/dns/<int:i>')
