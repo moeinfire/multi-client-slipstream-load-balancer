@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Multi-Client Slipstream Panel with Load Balancer and DNS Scanner documentation.">
+  <title>Multi-Client Slipstream Panel</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#ffffff; --fg:#24292f; --muted:#57606a; --border:#d0d7de; --panel:#f6f8fa; --link:#0969da; --code:#afb8c133; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0d1117; --fg:#e6edf3; --muted:#9198a1; --border:#30363d; --panel:#161b22; --link:#4493f8; --code:#6e768166; }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; }
+    .wrap { width:min(980px, calc(100% - 36px)); margin:0 auto; padding:34px 0 64px; }
+    .top { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding-bottom:20px; border-bottom:1px solid var(--border); margin-bottom:28px; }
+    .brand { font-size:18px; font-weight:700; letter-spacing:-.3px; }
+    .switch { display:flex; gap:6px; padding:5px; background:var(--panel); border:1px solid var(--border); border-radius:12px; }
+    .switch button { appearance:none; border:0; border-radius:8px; padding:9px 14px; color:var(--muted); background:transparent; font:600 14px inherit; cursor:pointer; }
+    .switch button[aria-pressed="true"] { background:var(--bg); color:var(--fg); box-shadow:0 1px 3px #0002; }
+    main { min-height:60vh; }
+    main[dir="rtl"] { text-align:right; }
+    h1,h2,h3 { line-height:1.3; margin-top:1.5em; }
+    h1 { font-size:2em; margin-top:0; padding-bottom:.3em; border-bottom:1px solid var(--border); }
+    h2 { font-size:1.5em; padding-bottom:.3em; border-bottom:1px solid var(--border); }
+    h3 { font-size:1.2em; }
+    p,ul,ol { margin:0 0 16px; }
+    li { margin:4px 0; }
+    a { color:var(--link); }
+    img { max-width:100%; height:auto; border-radius:10px; }
+    pre { overflow:auto; padding:16px; border-radius:8px; background:var(--panel); border:1px solid var(--border); direction:ltr; text-align:left; }
+    code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--code); padding:.15em .35em; border-radius:5px; }
+    pre code { background:transparent; padding:0; }
+    hr { border:0; border-top:1px solid var(--border); margin:28px 0; }
+    .footer { color:var(--muted); border-top:1px solid var(--border); margin-top:40px; padding-top:18px; font-size:13px; text-align:center; }
+    @media(max-width:560px) { .wrap{width:calc(100% - 24px);padding-top:20px}.brand{font-size:16px}.switch button{padding:8px 10px} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">Multi-Client Slipstream Panel</div>
+      <nav class="switch" aria-label="Language selection">
+        <button id="enBtn" type="button" aria-pressed="true">🇬🇧 English</button>
+        <button id="faBtn" type="button" aria-pressed="false">🇮🇷 فارسی</button>
+      </nav>
+    </header>
+    <main id="content" lang="en" dir="ltr" aria-live="polite"></main>
+    <footer class="footer">Multi-Client Slipstream Panel · <a href="https://github.com/moeinfire/multi-client-slipstream-load-balancer">GitHub Repository</a></footer>
+  </div>
+
+  <script type="text/markdown" id="english-content">
+<img width="1408" height="768" alt="Slipstream Panel screenshot" src="https://github.com/user-attachments/assets/fed4fb2d-00fa-4fb8-a1ee-730c54b16757" />
+
+A self-hosted web-based management panel for running, monitoring, and managing multiple Slipstream client tunnels on Linux servers.
+
+Slipstream Panel provides a centralized web interface for managing tunnel instances, configuring DNS resolvers, monitoring connection health, tracking traffic usage, and distributing SOCKS5 connections across healthy tunnels.
+
+## ✨ Features
+
+### 🚇 Tunnel Management
+
+- Add and configure multiple Slipstream client instances.
+- Automatically create and manage systemd services for tunnel instances.
+- Start, stop, restart, and delete individual tunnels.
+- Perform bulk operations to start, stop, or restart multiple tunnels.
+- Configure a local listening port for each tunnel.
+- Optional PEM certificate path configuration.
+- View individual tunnel logs for troubleshooting.
+
+### 🌐 DNS Management
+
+- Configure multiple DNS resolvers for each tunnel.
+- Set global default DNS resolvers for newly created tunnels.
+- Apply DNS configuration to all existing tunnels.
+- Edit DNS settings independently for each tunnel.
+- Support multiple resolver entries in `IP:PORT` format.
+
+### 🔍 Advanced DNS Scanner
+
+- Two-stage DNS testing workflow.
+- First-stage ICMP Ping testing for DNS resolver IPs.
+- Second-stage end-to-end Slipstream tunnel testing.
+- SOCKS5 Username/Password authentication during the test.
+- HTTPS connectivity verification against Google.
+- TLS certificate validation and HTTP 204 response verification.
+- Measure end-to-end latency and sort successful DNS results.
+- Configurable worker count and test timeout.
+- Select and copy successful DNS resolver addresses.
+- Temporary test tunnels do not modify or restart existing production tunnels.
+
+### ⚖️ SOCKS5 Load Balancer
+
+- Built-in SOCKS5 load balancer.
+- Round Robin distribution for new connections.
+- Automatically select healthy and active tunnel backends.
+- Temporarily exclude unhealthy or unreachable tunnels.
+- Reintroduce recovered tunnels after the cooldown period.
+- Forward SOCKS5 authentication to the selected backend.
+
+### 📊 Traffic Monitoring
+
+- Monitor incoming and outgoing traffic for each tunnel.
+- Display total traffic usage per instance.
+- Calculate approximate transfer speeds using periodic sampling.
+- Reset traffic counters for individual tunnels.
+- Traffic accounting based on systemd per-service IP accounting.
+
+### ❤️ Connection Health Monitoring
+
+- Periodically inspect each tunnel's service logs.
+- Detect connection-ready, connection-closed, and client-error events.
+- Display connection status and failure information.
+- Allow a recovery window before declaring a tunnel failed.
+- Automatically restart failed tunnels after a cooldown period.
+- Detect process exits and address-in-use errors.
+
+### 🔐 Access and Deployment
+
+- Password-protected web interface.
+- CSRF protection for management actions.
+- Automatically generated initial administrator password.
+- Separate storage for application secrets and configuration.
+- systemd service integration.
+- Installation and update scripts for Ubuntu/Debian-based systems.
+
+## 🧰 Requirements
+
+- Ubuntu or Debian-based Linux server.
+- Root or sudo access.
+- Python 3.
+- Flask.
+- The installer downloads only the Linux AMD64 Slipstream client binary from the latest release of `AliRezaBeigy/slipstream-rust-deploy` and installs it automatically.
+
+## 🚀 Quick Installation (One Command)
+
+Run this single command on an Ubuntu/Debian server (Git is not required):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install.sh)
+```
+
+The online installer downloads the latest `master` branch archive and runs the project installer. `curl` must be available to start the command; the bootstrap installs `tar` and CA certificates if needed. Run it as root; if you are not already root, open a root shell first with `sudo -i`.
+
+## 🗑️ Complete Uninstallation
+
+To remove the panel and resources created by this project directly from an Ubuntu or Debian server, run:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh)
+```
+
+The uninstaller asks for explicit confirmation by requiring the word `REMOVE`. To run without an interactive prompt:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh) --yes
+```
+
+It stops and removes the panel service, the optional standalone `slip.service` (only when its service file matches this project), and tunnel services generated by the panel. It also removes the panel application, database, credentials/configuration, project log directories, and the Slipstream client binary at the path recorded by the installer.
+
+For safety, external certificate files, firewall rules, unrelated services, and system-wide packages (including Python/Flask) are left untouched. The dedicated `slipstream` system account/group is removed only when its settings match the account created by this installer and it is not in use.
+
+## ⚠️ Important Notes
+
+- The Slipstream client binary is downloaded from the latest `AliRezaBeigy/slipstream-rust-deploy` GitHub Release (`slipstream-client-linux-amd64`); `update.sh` fetches the latest release asset whenever the panel is updated.
+- Tunnel configurations and systemd tunnel services are not included.
+- Each user must configure their own domains, DNS resolvers, certificates, and tunnel settings.
+- The panel should not be exposed directly to the public internet without appropriate access restrictions and HTTPS protection.
+- Review the source code and security configuration before deploying in production.
+
+## 📄 License
+
+MIT License
+  </script>
+  <script type="text/markdown" id="persian-content">
+<img width="1408" height="768" alt="Slipstream Panel screenshot" src="https://github.com/user-attachments/assets/fed4fb2d-00fa-4fb8-a1ee-730c54b16757" />
+
+# پنل مدیریت چندکلاینتی Slipstream با لودبالانسر و اسکنر DNS
+
+یک پنل مدیریتی تحت وب و قابل میزبانی روی سرور شخصی برای اجرا، نظارت و مدیریت چندین تونل Slipstream Client روی سرورهای لینوکسی.
+
+Slipstream Panel یک رابط وب متمرکز برای مدیریت نمونه‌های تونل، پیکربندی DNS Resolverها، نظارت بر سلامت اتصال، پیگیری میزان مصرف ترافیک و توزیع اتصال‌های SOCKS5 بین تونل‌های سالم فراهم می‌کند.
+
+## ✨ امکانات
+
+### 🚇 مدیریت تونل‌ها
+
+- افزودن و پیکربندی چندین نمونه Slipstream Client.
+- ایجاد و مدیریت خودکار سرویس‌های systemd برای نمونه‌های تونل.
+- شروع، توقف، راه‌اندازی مجدد و حذف جداگانه هر تونل.
+- اجرای عملیات گروهی برای شروع، توقف یا راه‌اندازی مجدد چندین تونل.
+- تنظیم پورت شنونده محلی برای هر تونل.
+- امکان تنظیم مسیر گواهی PEM.
+- مشاهده لاگ اختصاصی هر تونل برای عیب‌یابی.
+
+### 🌐 مدیریت DNS
+
+- پیکربندی چند DNS Resolver برای هر تونل.
+- تعیین DNS Resolverهای پیش‌فرض سراسری برای تونل‌های جدید.
+- اعمال تنظیمات DNS روی تمام تونل‌های موجود.
+- ویرایش مستقل تنظیمات DNS برای هر تونل.
+- پشتیبانی از چند Resolver با فرمت `IP:PORT`.
+
+### 🔍 اسکنر پیشرفته DNS
+
+- روند آزمایش DNS در دو مرحله.
+- مرحله اول: آزمایش Ping از نوع ICMP برای IP آدرس DNS Resolverها.
+- مرحله دوم: آزمایش کامل و انتها‌به‌انتهای تونل Slipstream.
+- پشتیبانی از احراز هویت Username/Password در SOCKS5 هنگام آزمایش.
+- بررسی اتصال HTTPS به سرویس Google.
+- اعتبارسنجی گواهی TLS و بررسی پاسخ HTTP 204.
+- اندازه‌گیری تأخیر انتها‌به‌انتها و مرتب‌سازی نتایج موفق DNS.
+- امکان تنظیم تعداد Workerها و زمان Timeout آزمایش.
+- انتخاب و کپی آدرس DNS Resolverهای موفق.
+- تونل‌های موقت آزمایش، تونل‌های عملیاتی موجود را تغییر نمی‌دهند و باعث راه‌اندازی مجدد آن‌ها نمی‌شوند.
+
+### ⚖️ لودبالانسر SOCKS5
+
+- لودبالانسر داخلی SOCKS5.
+- توزیع اتصال‌های جدید با روش Round Robin.
+- انتخاب خودکار Backendهای تونل سالم و فعال.
+- خارج کردن موقت تونل‌های ناسالم یا غیرقابل دسترس از چرخه.
+- بازگرداندن تونل‌های بازیابی‌شده پس از پایان زمان Cooldown.
+- انتقال اطلاعات احراز هویت SOCKS5 به Backend انتخاب‌شده.
+
+### 📊 پایش ترافیک
+
+- پایش ترافیک ورودی و خروجی هر تونل.
+- نمایش حجم کل ترافیک مصرف‌شده هر نمونه.
+- محاسبه سرعت تقریبی انتقال داده با نمونه‌برداری دوره‌ای.
+- صفر کردن شمارنده ترافیک هر تونل به‌صورت مستقل.
+- محاسبه ترافیک بر اساس قابلیت IP Accounting در systemd برای هر سرویس.
+
+### ❤️ پایش سلامت اتصال
+
+- بررسی دوره‌ای لاگ سرویس هر تونل.
+- تشخیص رویدادهای connection-ready، connection-closed و client-error.
+- نمایش وضعیت اتصال و اطلاعات مربوط به خطاها.
+- در نظر گرفتن مهلت بازیابی پیش از اعلام خرابی تونل.
+- راه‌اندازی مجدد خودکار تونل‌های خراب پس از پایان زمان Cooldown.
+- تشخیص خارج شدن پردازش از اجرا و خطاهای اشغال بودن آدرس (Address in Use).
+
+### 🔐 دسترسی و استقرار
+
+- رابط وب محافظت‌شده با رمز عبور.
+- محافظت CSRF برای عملیات مدیریتی.
+- تولید خودکار رمز عبور اولیه مدیر پنل.
+- ذخیره‌سازی جداگانه اطلاعات محرمانه و تنظیمات برنامه.
+- یکپارچگی با سرویس systemd.
+- اسکریپت‌های نصب و به‌روزرسانی برای سیستم‌های مبتنی بر Ubuntu/Debian.
+
+## 🧰 پیش‌نیازها
+
+- سرور لینوکسی مبتنی بر Ubuntu یا Debian.
+- دسترسی Root یا Sudo.
+- Python 3.
+- Flask.
+- نصب‌کننده فقط فایل اجرایی Slipstream Client مخصوص Linux AMD64 را از آخرین Release مخزن `AliRezaBeigy/slipstream-rust-deploy` دریافت و نصب می‌کند.
+
+## 🚀 نصب سریع (با یک دستور)
+
+این دستور را روی سرور Ubuntu/Debian اجرا کنید (نیازی به نصب Git نیست):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install-online.sh)
+```
+
+نصب‌کننده آنلاین آخرین آرشیو شاخه `master` را دریافت کرده و نصب‌کننده پروژه را اجرا می‌کند. برای شروع اجرای دستور، وجود `curl` ضروری است؛ اسکریپت راه‌انداز در صورت نیاز `tar` و گواهی‌های CA را نصب می‌کند. دستور را با دسترسی Root اجرا کنید؛ اگر در حال حاضر Root نیستید، ابتدا با دستور `sudo -i` وارد محیط Root شوید.
+
+## 🗑️ حذف کامل
+
+برای حذف پنل و منابع ایجادشده توسط این پروژه از سرور Ubuntu یا Debian، دستور زیر را اجرا کنید:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh)
+```
+
+اسکریپت حذف برای تأیید عملیات از شما می‌خواهد کلمه `REMOVE` را وارد کنید. برای اجرای حذف بدون نمایش درخواست تأیید:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh) --yes
+```
+
+این اسکریپت سرویس پنل، سرویس مستقل و اختیاری `slip.service` (فقط در صورتی که فایل سرویس با این پروژه مطابقت داشته باشد) و سرویس‌های تونلی ساخته‌شده توسط پنل را متوقف و حذف می‌کند. همچنین برنامه پنل، پایگاه داده، اطلاعات ورود و تنظیمات، پوشه‌های لاگ پروژه و فایل اجرایی Slipstream Client را در مسیری که توسط نصب‌کننده ثبت شده است حذف می‌کند.
+
+برای حفظ امنیت، فایل‌های گواهی خارجی، قوانین فایروال، سرویس‌های نامرتبط و بسته‌های سراسری سیستم (از جمله Python/Flask) دست‌نخورده باقی می‌مانند. حساب و گروه سیستمی اختصاصی `slipstream` فقط زمانی حذف می‌شوند که تنظیمات آن‌ها با حساب ساخته‌شده توسط این نصب‌کننده مطابقت داشته باشد و در حال استفاده نباشند.
+
+## ⚠️ نکات مهم
+
+- فایل اجرایی Slipstream Client از آخرین Release مخزن `AliRezaBeigy/slipstream-rust-deploy` (با نام `slipstream-client-linux-amd64`) دریافت می‌شود و اسکریپت `update.sh` نیز هنگام به‌روزرسانی پروژه، آخرین نسخه Release را دریافت می‌کند.
+- تنظیمات تونل‌ها و سرویس‌های systemd مربوط به تونل‌ها داخل مخزن قرار ندارند.
+- هر کاربر باید دامنه‌ها، DNS Resolverها، گواهی‌ها و تنظیمات تونل خود را پیکربندی کند.
+- پنل نباید بدون محدودیت دسترسی مناسب و محافظت HTTPS مستقیماً در معرض اینترنت عمومی قرار بگیرد.
+- پیش از استفاده در محیط عملیاتی، کد منبع و تنظیمات امنیتی را بررسی کنید.
+
+## 📄 مجوز
+
+MIT License
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script>
+    const content = document.getElementById('content');
+    const enButton = document.getElementById('enBtn');
+    const faButton = document.getElementById('faBtn');
+    function setLanguage(language) {
+      const persian = language === 'fa';
+      const source = document.getElementById(persian ? 'persian-content' : 'english-content').textContent;
+      content.innerHTML = marked.parse(source);
+      content.lang = persian ? 'fa' : 'en';
+      content.dir = persian ? 'rtl' : 'ltr';
+      document.documentElement.lang = persian ? 'fa' : 'en';
+      enButton.setAttribute('aria-pressed', String(!persian));
+      faButton.setAttribute('aria-pressed', String(persian));
+    }
+    enButton.addEventListener('click', () => setLanguage('en'));
+    faButton.addEventListener('click', () => setLanguage('fa'));
+    setLanguage('en');
+  </script>
+</body>
+</html>
