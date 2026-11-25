@@ -1167,7 +1167,7 @@ def add_bulk():
     try:
         now=time.time()
         for domain,port in zip(domains,ports):
-            cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started) VALUES(?,?,?,?,1,?,?)',
+            cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started,auth_enabled,auth_username,auth_password) VALUES(?,?,?,?,1,?,?,?,?,?)',
                           (domain,'\n'.join(dns),port,cert,'recovering',now,1 if auth_enabled else 0,auth_username,auth_password))
             created.append((cur.lastrowid,domain,port))
         c.commit()
