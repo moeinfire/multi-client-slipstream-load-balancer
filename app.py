@@ -58,7 +58,7 @@ def apply_panel_base_path(response):
             response.set_data(body)
     return response
 PASSWORD=open('/etc/slipstream-panel/admin.password').read().strip()
-API_TOKEN=os.environ.get('SLIPSTREAM_API_TOKEN','').strip() or PASSWORD
+API_TOKEN=PASSWORD
 
 HTML=r'''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slipstream Manager</title><style>
 :root{color-scheme:dark;--bg:#080f1e;--surface:#111d31;--surface2:#0c1729;--line:#263b59;--txt:#edf4ff;--muted:#9aacc7;--blue:#438cff;--cyan:#37d6d0;--green:#25c58b;--red:#ff667c;--amber:#ffc45c;--shadow:0 16px 42px rgba(0,0,0,.24)}
