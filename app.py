@@ -589,13 +589,25 @@ def make_unit(r, reload_systemd=True):
         with open(gateway_path,'w') as f:f.write('\n'.join(gateway))
         os.chmod(gateway_path,0o644)
     else:
-        # Stop and remove any previously installed gateway so no extra
-        # SOCKS auth layer remains in the connection path.
-        ctl('disable','--now',auth_unit)
+        # Explicitly stop the old gateway before changing the listener port.
+        # Do not rely on disable --now: stop and disable are separate here so
+        # a stale running gateway cannot keep owning the public SOCKS port.
+        stopped=ctl('stop',auth_unit)
+        disabled=ctl('disable',auth_unit)
+        still_active=ctl('is-active','--quiet',auth_unit).returncode==0
+        if still_active:
+            ctl('kill','--signal=SIGKILL',auth_unit)
+            ctl('stop',auth_unit)
+            still_active=ctl('is-active','--quiet',auth_unit).returncode==0
+        if still_active:
+            raise RuntimeError(f'سرویس احراز هویت {auth_unit} هنوز فعال است؛ پورت عمومی آزاد نشد.')
         for path in (gateway_path,cfg):
             try:os.remove(path)
             except FileNotFoundError:pass
-    if reload_systemd:ctl('daemon-reload')
+    if reload_systemd:
+        z=ctl('daemon-reload')
+        if z.returncode!=0:
+            raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
 
 def start(r):
     make_unit(r);reset_log_cursor(r);ctl('enable',unit(r['id']));z=ctl('start',unit(r['id']))
@@ -1403,10 +1415,27 @@ def auth_edit(i):
     update(i,auth_enabled=1 if enabled else 0,auth_username=username,auth_password=password)
     c=db();r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
     try:
+        auth_unit=f'slipstream-auth-{i}'
+        if not enabled:
+            # Stop the gateway immediately, before rewriting/reloading the
+            # tunnel unit, then ensure systemd no longer considers it active.
+            ctl('stop',auth_unit)
+            ctl('disable',auth_unit)
         make_unit(r)
         if r['enabled']:
-            reset_log_cursor(r);ctl('restart',unit(i));update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        flash('تنظیمات احراز هویت ذخیره شد؛ تونل برای اعمال تغییرات ری‌استارت شد.')
+            reset_log_cursor(r)
+            z=ctl('restart',unit(i))
+            if z.returncode!=0:
+                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
+            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
+        if not enabled:
+            # A final stop after daemon-reload covers any stale Wants= edge
+            # retained by the previously loaded unit definition.
+            ctl('stop',auth_unit)
+            ctl('disable',auth_unit)
+            if ctl('is-active','--quiet',auth_unit).returncode==0:
+                raise RuntimeError('سرویس SOCKS5 Gateway هنوز فعال است.')
+        flash('تنظیمات احراز هویت ذخیره شد؛ مسیر SOCKS5 مطابق وضعیت تیک بازسازی شد.')
     except Exception as e:flash('خطا در اعمال تنظیمات احراز هویت: '+str(e))
     return redirect('/')
 
