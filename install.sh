@@ -62,7 +62,7 @@ BIN="${SLIPSTREAM_BIN:-/usr/local/bin/slipstream-client}"
 
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-flask openssl iputils-ping ca-certificates curl
-python3 - "$SCRIPT_DIR/app.py" <<'PY'
+python3 - "$SCRIPT_DIR/app.py" "$SCRIPT_DIR/socks5-gateway.py" <<'PY'
 import ast, sys
 from pathlib import Path
 if sys.version_info < (3, 9):
@@ -71,9 +71,10 @@ try:
     import flask
 except Exception as exc:
     raise SystemExit(f"ERROR: Flask is not importable by the system Python: {exc}")
-source = Path(sys.argv[1]).read_text(encoding="utf-8")
-ast.parse(source, filename=sys.argv[1])
-print(f"Python {sys.version.split()[0]} and Flask are ready; app.py syntax is valid.")
+for filename in sys.argv[1:]:
+    source = Path(filename).read_text(encoding="utf-8")
+    ast.parse(source, filename=filename)
+print(f"Python {sys.version.split()[0]} and Flask are ready; app and gateway syntax are valid.")
 PY
 install -d -m 0750 "$APP" "$CONF"
 
