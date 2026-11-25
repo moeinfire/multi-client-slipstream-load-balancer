@@ -1308,15 +1308,28 @@ def upstream_auth_edit(i):
     r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
     if not r:abort(404)
-    username=request.form.get('upstream_username','').strip()
-    password=request.form.get('upstream_password','')
-    username=username or (r['upstream_username'] or '')
-    password=password or (r['upstream_password'] or '')
+    username=request.form.get('upstream_username','').strip() or (r['upstream_username'] or '')
+    password=request.form.get('upstream_password','') or (r['upstream_password'] or '')
     if bool(username)!=bool(password) or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
         flash('نام کاربری و رمز SOCKS5 مقصد باید هر دو معتبر و حداکثر ۲۵۵ بایت باشند.')
         return redirect('/')
-    update(i,upstream_username=username,upstream_password=password)
-    flash('اعتبارنامه SOCKS5 مقصد این تونل ذخیره شد.')
+    # Retire the old per-tunnel inbound auth gateway; this field now stores
+    # only the remote SOCKS5 destination credentials for this tunnel.
+    update(i,upstream_username=username,upstream_password=password,auth_enabled=0,auth_username='',auth_password='')
+    try:
+        auth_unit=f'slipstream-auth-{i}'
+        ctl('stop',auth_unit)
+        ctl('disable',auth_unit)
+        make_unit(r)
+        if r['enabled']:
+            reset_log_cursor(r)
+            z=ctl('restart',unit(i))
+            if z.returncode!=0:
+                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
+            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
+        flash('اعتبارنامه SOCKS5 مقصد ذخیره شد؛ احراز هویت ورودی قدیمی این تونل نیز غیرفعال شد.')
+    except Exception as e:
+        flash('اعتبارنامه ذخیره شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
     return redirect('/')
 
 @app.post('/dns/<int:i>')
