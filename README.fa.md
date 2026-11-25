@@ -84,7 +84,7 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - دسترسی Root یا Sudo.
 - Python 3.
 - Flask.
-- نصب‌کننده فقط فایل اجرایی Slipstream Client مخصوص Linux AMD64 را مستقیماً از شاخه `master` همین مخزن دریافت و نصب می‌کند.
+- نصب‌کننده فقط فایل اجرایی Slipstream Client مخصوص Linux AMD64 را از آخرین Release مخزن `AliRezaBeigy/slipstream-rust-deploy` دریافت و نصب می‌کند.
 
 ## 🚀 نصب سریع (با یک دستور)
 
@@ -116,7 +116,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slips
 
 ## ⚠️ نکات مهم
 
-- فایل اجرایی Slipstream Client مستقیماً از شاخه `master` همین مخزن دریافت می‌شود و اسکریپت `update.sh` نیز هنگام به‌روزرسانی پروژه آن را به‌روز می‌کند.
+- فایل اجرایی Slipstream Client از آخرین Release مخزن `AliRezaBeigy/slipstream-rust-deploy` (با نام `slipstream-client-linux-amd64`) دریافت می‌شود و اسکریپت `update.sh` نیز هنگام به‌روزرسانی پروژه، آخرین نسخه Release را دریافت می‌کند.
 - تنظیمات تونل‌ها و سرویس‌های systemd مربوط به تونل‌ها داخل مخزن قرار ندارند.
 - هر کاربر باید دامنه‌ها، DNS Resolverها، گواهی‌ها و تنظیمات تونل خود را پیکربندی کند.
 - پنل نباید بدون محدودیت دسترسی مناسب و محافظت HTTPS مستقیماً در معرض اینترنت عمومی قرار بگیرد.
