@@ -40,7 +40,7 @@ if ! grep -Fq "ping_success={item['resolver'] for item in DNS_SCAN_STATE['ping_r
 fi
 
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-flask openssl iputils-ping ca-certificates
+DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-flask openssl iputils-ping ca-certificates curl
 python3 - "$SCRIPT_DIR/app.py" <<'PY'
 import ast, sys
 from pathlib import Path
@@ -111,14 +111,55 @@ fi
 install -m 0750 "$SCRIPT_DIR/app.py" "$APP/app.py"
 echo "Installed DNS scanner: stage two is limited to IPs that passed stage-one ping."
 
-# Install the bundled Slipstream executable from the repository root.
-if [[ -f "$SCRIPT_DIR/slipstream" ]]; then
-  install -D -m 0755 "$SCRIPT_DIR/slipstream" "$BIN"
-  echo "Installed Slipstream client to $BIN"
-else
-  echo "NOTICE: bundled file '$SCRIPT_DIR/slipstream' was not found."
-  echo "The panel will install, but scanner features need the Slipstream client."
-fi
+# Always download only the Linux AMD64 Slipstream executable from this fork.
+
+download_slipstream_binary() {
+  [[ "$(uname -m)" == "x86_64" ]] || {
+    echo "ERROR: This project currently provides only the Linux AMD64 (x86_64) Slipstream binary."
+    return 1
+  }
+  command -v curl >/dev/null 2>&1 || {
+    echo "ERROR: curl is required to download the Slipstream binary."
+    return 1
+  }
+  install -d -m 0755 "$(dirname "$BIN")"
+  local tmp_bin
+  tmp_bin="$(mktemp "${BIN}.download.XXXXXX")"
+  if ! curl --fail --location --silent --show-error --retry 3 --connect-timeout 15 \
+      "https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/slipstream" \
+      --output "$tmp_bin"; then
+    rm -f -- "$tmp_bin"
+    echo "ERROR: Could not download the latest Slipstream Linux AMD64 binary."
+    return 1
+  fi
+  if ! python3 - "$tmp_bin" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+h = p.read_bytes()[:20]
+if len(h) < 20 or h[:4] != b"\\x7fELF" or h[4] != 2:
+    raise SystemExit("Downloaded file is not a 64-bit ELF executable.")
+if h[5] not in (1, 2):
+    raise SystemExit("Downloaded ELF has an unsupported byte order.")
+endian = "little" if h[5] == 1 else "big"
+if int.from_bytes(h[18:20], endian) != 62:
+    raise SystemExit("Downloaded ELF is not an x86-64 (AMD64) executable.")
+PY
+  then
+    rm -f -- "$tmp_bin"
+    echo "ERROR: The downloaded Slipstream file failed Linux AMD64 validation."
+    return 1
+  fi
+  chmod 0755 "$tmp_bin"
+  if [[ -f "$BIN" ]] && cmp -s "$tmp_bin" "$BIN"; then
+    rm -f -- "$tmp_bin"
+    echo "Slipstream Linux AMD64 is already up to date."
+  else
+    mv -f -- "$tmp_bin" "$BIN"
+    echo "Updated Slipstream Linux AMD64 binary: $BIN"
+  fi
+}
+
+download_slipstream_binary
 
 # Install the standalone Slipstream manager and its systemd unit.
 install -m 0750 "$SCRIPT_DIR/slip-manager.py" "$APP/slip-manager.py"
