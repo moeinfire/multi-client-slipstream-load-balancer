@@ -115,7 +115,7 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 <div class="card"><h3>🌐 مدیریت DNS کلی</h3><form method="post" action="/dns/global"><input type="hidden" name="csrf" value="{{csrf}}"><label>DNS Resolverهای عمومی (هر خط یک مورد، فرمت IP:PORT)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea><div class="actions" style="margin-top:12px"><button class="gray" name="mode" value="save">ذخیره به‌عنوان DNS پیش‌فرض</button><button class="green" name="mode" value="apply" onclick="return confirm('DNSهای واردشده روی تمام تونل‌ها اعمال و تونل‌های فعال به‌ترتیب ری‌استارت می‌شوند. ادامه می‌دهید؟')">اعمال روی همه تونل‌ها</button></div></form><div class="hint" style="margin-top:12px">ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد. «اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند. برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.</div></div>
 <div class="card"><h3>＋ افزودن دامنه</h3><form method="post" action="/add"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه</label><input name="domain" placeholder="t.example.com" required></div><div><label>DNS Resolverها (هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت محلی (اختیاری)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="خودکار"></div><div><label>گواهی PEM (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label><input style="width:auto" type="checkbox" name="auth_enabled" value="1"> فعال‌سازی احراز هویت SOCKS5 این تونل</label><input name="auth_username" placeholder="نام کاربری ورودی SOCKS5"><input name="auth_password" type="password" placeholder="رمز عبور ورودی SOCKS5"></div></div><p><button>افزودن و اجرای تونل</button></p></form><div class="hint">DNSها به شکل گزینه‌های تکرارشونده <code>--resolver</code> اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».</div></div>
 <div class="card"><h3>＋ افزودن گروهی دامنه‌ها</h3><form method="post" action="/add/bulk"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div style="grid-column:1/-1"><label>فهرست دامنه‌ها (هر خط یک دامنه)</label><textarea name="domains" rows="7" placeholder="t1.example.com&#10;t2.example.com&#10;t3.example.com" required></textarea></div><div><label>DNS Resolverها (مشترک برای همه، هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت شروع (اختیاری؛ پورت‌های بعدی به‌ترتیب تخصیص می‌یابند)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="تخصیص خودکار"></div><div><label>گواهی PEM مشترک (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label><input style="width:auto" type="checkbox" name="auth_enabled" value="1"> اعمال احراز هویت SOCKS5 روی همه تونل‌های این گروه</label><input name="auth_username" placeholder="نام کاربری مشترک"><input name="auth_password" type="password" placeholder="رمز عبور مشترک"></div></div><p><button class="green">افزودن و اجرای گروهی</button></p></form><div class="hint">حداکثر ۵۰۰ دامنه در هر بار. دامنه‌های نامعتبر، تکراری یا دارای پورت غیرقابل‌استفاده پیش از ثبت بررسی می‌شوند. پورت‌ها برای هر تونل یکتا هستند و سرویس‌ها یکی‌یکی راه‌اندازی می‌شوند.</div></div>
-<div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>IPهای مجاز برای اتصال (هر خط یک IP یا CIDR)</label><textarea name="lb_allowed_ips" rows="3" placeholder="203.0.113.10&#10;2001:db8::10">{{lb_allowed_ips}}</textarea><div class="small">فقط این IPها می‌توانند بدون Username/Password به لودبالانسر متصل شوند. فهرست خالی یعنی رد تمام اتصال‌ها.</div></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود. کلاینت‌های دارای IP مجاز بدون Username/Password متصل می‌شوند؛ اعتبارنامه ذخیره‌شده هر تونل فقط برای احراز هویت SOCKS5 در سمت سرور خارجی استفاده می‌شود. IP عمومی سرور ثنایی را در فهرست IPهای مجاز وارد کن.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div>
+<div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>IPهای مجاز برای اتصال بدون رمز (هر خط یک IP یا CIDR)</label><textarea name="lb_allowed_ips" rows="3" placeholder="203.0.113.10&#10;2001:db8::10">{{lb_allowed_ips}}</textarea><div class="small">این IPها بدون رمز وارد می‌شوند. سایر IPها در صورت فعال بودن احراز هویت باید نام کاربری و رمز مستقل لودبالانسر را وارد کنند.</div></div><div><label><input style="width:auto" type="checkbox" name="lb_auth_enabled" value="1" {% if lb_auth_enabled %}checked{% endif %}> فعال‌سازی نام کاربری و رمز مستقل برای لودبالانسر</label><input name="lb_auth_username" value="{{lb_auth_username}}" placeholder="نام کاربری لودبالانسر" autocomplete="off"><input name="lb_auth_password" type="password" placeholder="رمز جدید (خالی = حفظ رمز فعلی)" autocomplete="new-password"><div class="small">این اعتبارنامه فقط برای اتصال کلاینت به پورت ورودی لودبالانسر است و با رمز تونل‌ها تفاوت دارد.</div></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود. IPهای مجاز بدون رمز وصل می‌شوند؛ سایر کلاینت‌ها در صورت فعال بودن احراز هویت مستقل، با نام کاربری و رمز لودبالانسر وارد می‌شوند. پس از انتخاب تونل، پنل به‌صورت خودکار از اعتبارنامه ذخیره‌شده همان تونل برای احراز هویت SOCKS5 سمت سرور استفاده می‌کند.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div>
 <div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>احراز هویت SOCKS5</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><form class="dnsform" method="post" action="/auth/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><label><input style="width:auto" type="checkbox" name="auth_enabled" value="1" {% if t.auth_enabled %}checked{% endif %}> فعال</label><input name="auth_username" placeholder="نام کاربری" value="{{t.auth_username}}" autocomplete="off"><input name="auth_password" type="password" placeholder="{% if t.auth_password %}برای تغییر رمز وارد کنید{% else %}رمز عبور{% endif %}" autocomplete="new-password"><button class="gray">ذخیره و ری‌استارت</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
 <div class="card"><h3>منطق پایش سلامت</h3><div class="hint">هر ۱ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود. پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛ اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود. در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود. این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.</div></div>
 <script>
@@ -259,6 +259,9 @@ def db():
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_port',?)",(str(LB_DEFAULT_PORT),))
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_enabled','1')")
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_allowed_ips','')")
+    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_auth_enabled','0')")
+    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_auth_username','')")
+    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_auth_password','')")
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('global_resolvers','1.1.1.1:53')")
     c.execute('CREATE TABLE IF NOT EXISTS traffic_stats(tunnel_id INTEGER PRIMARY KEY, rx_total INTEGER NOT NULL DEFAULT 0, tx_total INTEGER NOT NULL DEFAULT 0, last_rx INTEGER NOT NULL DEFAULT 0, last_tx INTEGER NOT NULL DEFAULT 0, last_sample REAL, rx_rate REAL NOT NULL DEFAULT 0, tx_rate REAL NOT NULL DEFAULT 0)')
     c.commit();return c
@@ -337,29 +340,61 @@ class LBHandler(socketserver.BaseRequestHandler):
     def handle(self):
         client=self.request
         upstream=None
-        if not lb_client_allowed(self.client_address[0]):
-            print(f'[load-balancer] rejected client outside allowlist: {self.client_address[0]}',flush=True)
+        client_ip=self.client_address[0]
+        ip_allowed=lb_client_allowed(client_ip)
+        lb_auth=get_setting('lb_auth_enabled','0')=='1'
+        if not ip_allowed and not lb_auth:
+            print(f'[load-balancer] rejected client outside allowlist: {client_ip}',flush=True)
             return
         try:
             client.settimeout(30)
-            # The public load balancer always exposes No Authentication.
             greeting=lb_recv_exact(client,2)
             if greeting[0]!=5 or greeting[1]<1:
                 return
             methods=lb_recv_exact(client,greeting[1])
-            if 0 not in methods:
-                client.sendall(b'\\x05\\xff')
-                return
+
+            # Trusted IPs retain the existing no-auth bypass. Other clients
+            # must authenticate with the independent load-balancer account.
+            if ip_allowed:
+                if 0 not in methods:
+                    client.sendall(b'\x05\xff')
+                    return
+                client.sendall(b'\x05\x00')
+            else:
+                if 2 not in methods:
+                    client.sendall(b'\x05\xff')
+                    return
+                client.sendall(b'\x05\x02')
+                if lb_recv_exact(client,1)!=b'\x01':
+                    return
+                ulen=lb_recv_exact(client,1)[0]
+                if not ulen:
+                    client.sendall(b'\x01\x01')
+                    return
+                username=lb_recv_exact(client,ulen)
+                plen=lb_recv_exact(client,1)[0]
+                if not plen:
+                    client.sendall(b'\x01\x01')
+                    return
+                password=lb_recv_exact(client,plen)
+                saved_user=(get_setting('lb_auth_username','') or '').encode('utf-8')
+                saved_pass=(get_setting('lb_auth_password','') or '').encode('utf-8')
+                if (not saved_user or not saved_pass or
+                    not hmac.compare_digest(username,saved_user) or
+                    not hmac.compare_digest(password,saved_pass)):
+                    client.sendall(b'\x01\x01')
+                    print(f'[load-balancer] authentication failed for {client_ip}',flush=True)
+                    return
+                client.sendall(b'\x01\x00')
 
             picked=choose_backend()
             if not picked:
-                client.sendall(b'\\x05\\xff')
+                lb_send_failure(client,1)
                 return
             port,upstream=picked
             upstream.settimeout(30)
 
-            # Read this backend's saved credentials. The load balancer
-            # authenticates to its local gateway on behalf of the client.
+            # Authenticate to the selected tunnel using its own saved account.
             c=db()
             backend=c.execute('SELECT auth_enabled,auth_username,auth_password FROM tunnels WHERE port=?',(port,)).fetchone()
             c.close()
@@ -368,39 +403,35 @@ class LBHandler(socketserver.BaseRequestHandler):
                 return
 
             if backend['auth_enabled']:
-                upstream.sendall(b'\\x05\\x01\\x02')
+                upstream.sendall(b'\x05\x01\x02')
             else:
-                upstream.sendall(b'\\x05\\x01\\x00')
+                upstream.sendall(b'\x05\x01\x00')
             selected=lb_recv_exact(upstream,2)
             if selected[0]!=5 or selected[1]==255:
                 lb_send_failure(client,1)
                 return
 
             if selected[1]==2:
-                username=(backend['auth_username'] or '').encode('utf-8')
-                password=(backend['auth_password'] or '').encode('utf-8')
-                if not (1<=len(username)<=255 and 1<=len(password)<=255):
+                backend_user=(backend['auth_username'] or '').encode('utf-8')
+                backend_pass=(backend['auth_password'] or '').encode('utf-8')
+                if not (1<=len(backend_user)<=255 and 1<=len(backend_pass)<=255):
                     lb_send_failure(client,1)
                     return
-                upstream.sendall(b'\\x01'+bytes((len(username),))+username+bytes((len(password),))+password)
+                upstream.sendall(b'\x01'+bytes((len(backend_user),))+backend_user+
+                                 bytes((len(backend_pass),))+backend_pass)
                 auth_reply=lb_recv_exact(upstream,2)
-                if auth_reply!=b'\\x01\\x00':
+                if auth_reply!=b'\x01\x00':
                     lb_send_failure(client,2)
                     return
             elif selected[1]!=0:
                 lb_send_failure(client,1)
                 return
 
-            # The client sees a successful No-Auth negotiation, while the
-            # selected backend has already been authenticated internally.
-            client.sendall(b'\\x05\\x00')
             client.settimeout(120)
             upstream.settimeout(120)
             peers=[client,upstream]
             while True:
                 readable,_,_=select.select(peers,[],[],None)
-                if not readable:
-                    break
                 for src in readable:
                     dst=upstream if src is client else client
                     data=src.recv(65536)
@@ -1036,7 +1067,7 @@ def dns_scan_stop():
 @app.route('/')
 @require_login
 def index():
-    ts=tunnels();return render_template_string(HTML,logged=True,tunnels=ts,healthy=sum(x['health_state']=='connected' for x in ts),cooling=sum(x['health_state']=='cooldown' for x in ts),pmin=PMIN,pmax=PMAX,csrf=csrf_token(),lb_port=int(get_setting('lb_port',str(LB_DEFAULT_PORT))),lb_enabled=get_setting('lb_enabled','1')=='1',lb_allowed_ips=get_setting('lb_allowed_ips',''),lb_backends=lb_backends(),global_resolvers=get_setting('global_resolvers','1.1.1.1:53'))
+    ts=tunnels();return render_template_string(HTML,logged=True,tunnels=ts,healthy=sum(x['health_state']=='connected' for x in ts),cooling=sum(x['health_state']=='cooldown' for x in ts),pmin=PMIN,pmax=PMAX,csrf=csrf_token(),lb_port=int(get_setting('lb_port',str(LB_DEFAULT_PORT))),lb_enabled=get_setting('lb_enabled','1')=='1',lb_allowed_ips=get_setting('lb_allowed_ips',''),lb_auth_enabled=get_setting('lb_auth_enabled','0')=='1',lb_auth_username=get_setting('lb_auth_username',''),lb_backends=lb_backends(),global_resolvers=get_setting('global_resolvers','1.1.1.1:53'))
 @app.post('/dns/global')
 @require_login
 def dns_global():
@@ -1090,7 +1121,6 @@ def lb_settings():
     try: port=int(request.form.get('lb_port',''))
     except ValueError: flash('پورت لودبالانسر معتبر نیست.'); return redirect('/')
     if not 1<=port<=65535: flash('پورت باید بین 1 تا 65535 باشد.'); return redirect('/')
-    # Do not collide with any configured local tunnel port or the panel listener.
     c=db(); used={int(x['port']) for x in c.execute('SELECT port FROM tunnels')}; c.close()
     if port in used or port==PANEL_PORT: flash('این پورت توسط پنل یا یکی از تونل‌ها استفاده می‌شود.'); return redirect('/')
     raw_allowed=request.form.get('lb_allowed_ips','').replace(',', '\n')
@@ -1107,11 +1137,36 @@ def lb_settings():
     except ValueError:
         flash('فهرست IP مجاز نامعتبر است؛ هر خط باید IP یا CIDR معتبر باشد.')
         return redirect('/')
-    if request.form.get('lb_enabled')=='1' and not allowed:
-        flash('برای فعال‌سازی لودبالانسر بدون رمز، حداقل IP سرور ثنایی را در فهرست IPهای مجاز وارد کن.')
+
+    auth_enabled=request.form.get('lb_auth_enabled')=='1'
+    auth_username=request.form.get('lb_auth_username','').strip()
+    auth_password=request.form.get('lb_auth_password','')
+    old_username=get_setting('lb_auth_username','') or ''
+    old_password=get_setting('lb_auth_password','') or ''
+    if auth_enabled:
+        auth_username=auth_username or old_username
+        auth_password=auth_password or old_password
+        if (not auth_username or not auth_password or
+            len(auth_username.encode('utf-8'))>255 or
+            len(auth_password.encode('utf-8'))>255):
+            flash('برای فعال‌سازی احراز هویت مستقل، نام کاربری و رمز عبور ۱ تا ۲۵۵ بایتی لازم است.')
+            return redirect('/')
+    else:
+        auth_username=''
+        auth_password=''
+
+    if request.form.get('lb_enabled')=='1' and not allowed and not auth_enabled:
+        flash('برای فعال‌سازی لودبالانسر، یا IP مجاز وارد کن یا احراز هویت مستقل را فعال و تنظیم کن.')
         return redirect('/')
-    set_settings(lb_port=port,lb_enabled='1' if request.form.get('lb_enabled')=='1' else '0',lb_allowed_ips='\n'.join(allowed))
-    flash('تنظیمات لودبالانسر ذخیره شد؛ فقط IPهای مجاز می‌توانند بدون رمز متصل شوند.')
+    set_settings(
+        lb_port=port,
+        lb_enabled='1' if request.form.get('lb_enabled')=='1' else '0',
+        lb_allowed_ips='\n'.join(allowed),
+        lb_auth_enabled='1' if auth_enabled else '0',
+        lb_auth_username=auth_username,
+        lb_auth_password=auth_password
+    )
+    flash('تنظیمات لودبالانسر ذخیره شد؛ احراز هویت ورودی و اعتبارنامه تونل‌ها مستقل از یکدیگر هستند.')
     return redirect('/')
 
 @app.route('/api/status')
