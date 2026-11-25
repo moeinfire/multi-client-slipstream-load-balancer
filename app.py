@@ -1417,29 +1417,51 @@ def upstream_auth_clear(i):
     c.close()
     if not r: abort(404)
 
-    # Clear both current upstream credentials and any legacy per-tunnel
-    # inbound-auth fields, so an old SOCKS5 gateway cannot keep requiring
-    # credentials after the user explicitly removes them.
+    was_enabled=bool(r['enabled'])
     update(i,upstream_username='',upstream_password='',upstream_auth_disabled=1,
            auth_enabled=0,auth_username='',auth_password='')
 
     c=db()
     fresh=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
     c.close()
+    service=unit(i)
+    auth_unit=f'slipstream-auth-{i}'
+    service_path=f'/etc/systemd/system/{service}.service'
     try:
-        # Rebuild the tunnel unit with authentication disabled. make_unit()
-        # also stops/disables and removes any legacy per-tunnel auth gateway.
-        make_unit(fresh)
-        if fresh['enabled']:
+        # Fully retire the old systemd units, then recreate the tunnel cleanly.
+        for old_unit in (auth_unit,service):
+            ctl('disable','--now',old_unit)
+            ctl('stop',old_unit)
+            ctl('kill','--kill-whom=all','--signal=SIGKILL',old_unit)
+            if ctl('is-active','--quiet',old_unit).returncode==0:
+                raise RuntimeError(f'سرویس {old_unit} هنوز متوقف نشده است.')
+
+        try: os.remove(service_path)
+        except FileNotFoundError: pass
+        z=ctl('daemon-reload')
+        if z.returncode!=0:
+            raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
+
+        make_unit(fresh,reload_systemd=False)
+        z=ctl('daemon-reload')
+        if z.returncode!=0:
+            raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
+
+        ctl('reset-failed',service)
+        if was_enabled:
             reset_log_cursor(fresh)
-            z=ctl('restart',unit(i))
+            z=ctl('enable','--now',service)
             if z.returncode!=0:
-                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
-            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        flash('نام کاربری و رمز این تونل کاملاً حذف شد؛ احراز هویت ورودی و مقصد غیرفعال شد. اعتبارنامه پیش‌فرض لودبالانسر نیز برای این تونل استفاده نمی‌شود.')
+                raise RuntimeError((z.stderr or z.stdout).strip() or 'اجرای مجدد تونل پس از ساخت سرویس جدید ناموفق بود.')
+            update(i,enabled=1,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
+            flash('اعتبارنامه حذف شد؛ سرویس تونل کاملاً حذف و از نو ساخته و اجرا شد. تنظیمات Load Balancer حفظ شدند.')
+        else:
+            update(i,enabled=0,health_state='manual',retry_at=None,last_error='')
+            flash('اعتبارنامه حذف شد؛ سرویس تونل از نو ساخته شد و چون تونل قبلاً متوقف بود، همچنان متوقف باقی ماند.')
     except Exception as e:
-        flash('اطلاعات ورود حذف شد، اما بازسازی سرویس تونل کامل نشد: '+str(e))
+        flash('اعتبارنامه در پنل حذف شد، اما حذف و ساخت مجدد سرویس کامل نشد: '+str(e))
     return redirect('/')
+
 
 @app.post('/dns/<int:i>')
 @require_login
