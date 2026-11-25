@@ -1316,6 +1316,9 @@ def upstream_auth_edit(i):
     # Retire the old per-tunnel inbound auth gateway; this field now stores
     # only the remote SOCKS5 destination credentials for this tunnel.
     update(i,upstream_username=username,upstream_password=password,auth_enabled=0,auth_username='',auth_password='')
+    c=db()
+    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
+    c.close()
     try:
         auth_unit=f'slipstream-auth-{i}'
         ctl('stop',auth_unit)
