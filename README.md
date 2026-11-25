@@ -34,6 +34,34 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Optional PEM certificate path configuration.
 - View individual tunnel logs for troubleshooting.
 
+### 🔑 External Tunnel Credentials API
+
+- Update or clear a tunnel's remote SOCKS5 credentials without using the web form.
+- Endpoint: `/api/tunnels/{tunnel_id}/credentials`.
+- Authentication: send the panel administrator password in `X-API-Key` or `Authorization: Bearer <token>`. The token is the password stored in `/etc/slipstream-panel/admin.password`.
+- Update credentials with `PUT` (or `PATCH`) and a JSON body containing both non-empty string fields: `username` and `password`.
+- Clear credentials with `DELETE`; do not send an empty password to clear them.
+- Successful changes recreate the tunnel with a new tunnel ID. The domain, DNS resolvers, local port, certificate, and enabled/stopped state are preserved. Existing connections through that tunnel are interrupted during replacement.
+- The response returns both `previous_id` and the new `id`. Update external systems that refer to tunnel IDs.
+- Mutations are serialized across application workers. If replacement fails, the application attempts to restore the previous database record and service. Database and systemd operations cannot form a single native atomic transaction, so inspect the API error if rollback also reports a failure.
+- Protect this endpoint with HTTPS and firewall restrictions. The API token is the administrator password; never expose it in client-side code or logs.
+
+Example update:
+
+```bash
+curl -X PUT "https://PANEL_HOST/api/tunnels/12/credentials" \
+  -H "X-API-Key: YOUR_PANEL_ADMIN_PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"SOCKS_USER","password":"SOCKS_PASSWORD"}'
+```
+
+Example clear:
+
+```bash
+curl -X DELETE "https://PANEL_HOST/api/tunnels/12/credentials" \
+  -H "X-API-Key: YOUR_PANEL_ADMIN_PASSWORD"
+```
+
 ### 🌐 DNS Management
 
 - Configure multiple DNS resolvers for each tunnel.
@@ -227,6 +255,34 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - اعمال نام کاربری و رمز مشترک SOCKS5 روی تمام دامنه‌هایی که به‌صورت گروهی اضافه می‌شوند.
 - امکان تنظیم مسیر گواهی PEM.
 - مشاهده لاگ اختصاصی هر تونل برای عیب‌یابی.
+
+### 🔑 API خارجی مدیریت اعتبارنامه تونل
+
+- امکان تغییر یا حذف اعتبارنامه SOCKS5 مقصد هر تونل بدون ورود به فرم پنل.
+- آدرس: `/api/tunnels/{tunnel_id}/credentials`
+- احراز هویت: رمز مدیر پنل را در هدر `X-API-Key` یا `Authorization: Bearer <token>` ارسال کنید. توکن همان رمز ذخیره‌شده در فایل `/etc/slipstream-panel/admin.password` است.
+- برای تغییر اعتبارنامه از متد `PUT` یا `PATCH` و بدنه JSON شامل دو رشته غیرخالی `username` و `password` استفاده کنید.
+- برای حذف کامل اعتبارنامه از متد `DELETE` استفاده کنید؛ رمز خالی را برای حذف ارسال نکنید.
+- پس از تغییر موفق، تونل با شناسه جدید بازسازی می‌شود. دامنه، DNSها، پورت محلی، گواهی و وضعیت فعال/متوقف حفظ می‌شوند. اتصال‌های جاری آن تونل در زمان جایگزینی قطع خواهند شد.
+- پاسخ API شامل `previous_id` و شناسه جدید `id` است؛ اگر سامانه خارجی شناسه تونل را ذخیره می‌کند، باید آن را به‌روزرسانی کند.
+- عملیات تغییر در Workerهای برنامه سریالی می‌شود. در صورت شکست بازسازی، برنامه تلاش می‌کند رکورد و سرویس قبلی را بازیابی کند. دیتابیس و systemd تراکنش اتمیک مشترک ندارند؛ بنابراین اگر پاسخ خطا از شکست Rollback نیز خبر داد، وضعیت سرویس را بررسی کنید.
+- این API را فقط پشت HTTPS و محدودیت دسترسی Firewall قرار دهید. توکن همان رمز مدیر پنل است؛ آن را در کد سمت کاربر یا لاگ‌ها قرار ندهید.
+
+نمونه تغییر اعتبارنامه:
+
+```bash
+curl -X PUT "https://PANEL_HOST/api/tunnels/12/credentials" \
+  -H "X-API-Key: YOUR_PANEL_ADMIN_PASSWORD" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"SOCKS_USER","password":"SOCKS_PASSWORD"}'
+```
+
+نمونه حذف اعتبارنامه:
+
+```bash
+curl -X DELETE "https://PANEL_HOST/api/tunnels/12/credentials" \
+  -H "X-API-Key: YOUR_PANEL_ADMIN_PASSWORD"
+```
 
 ### 🌐 مدیریت DNS
 
