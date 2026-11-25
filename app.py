@@ -700,8 +700,11 @@ def recreate_tunnel_credentials(tunnel_id,username=None,password=None,clear=Fals
                 return old_id,False
             auth_disabled=0
         replacement=dict(snapshot)
+        # Rotate only the destination (upstream) SOCKS5 credentials.
+        # Keep the tunnel's local SOCKS authentication and all connection
+        # settings from the snapshot unchanged.
         replacement.update(upstream_username=new_user,upstream_password=new_pass,
-            upstream_auth_disabled=auth_disabled,auth_enabled=0,auth_username='',auth_password='',
+            upstream_auth_disabled=auth_disabled,
             health_state='recovering' if snapshot['enabled'] else 'manual',retry_at=None,
             last_started=time.time() if snapshot['enabled'] else snapshot.get('last_started'),
             last_check=None,last_error='',failure_count=0,last_down=None)
@@ -1571,11 +1574,20 @@ def upstream_auth_edit(i):
 @require_login
 def upstream_auth_clear(i):
     check_csrf()
+    app.logger.info('[UPSTREAM-AUTH-CLEAR] Requested tunnel_id=%s', i)
     try:
-        new_id,changed=recreate_tunnel_credentials(i,clear=True)
-        flash(f'اعتبارنامه حذف شد و تونل با شناسه جدید {new_id} بازسازی شد.')
-    except LookupError:abort(404)
-    except Exception as e:flash('حذف اعتبارنامه انجام نشد: '+str(e))
+        new_id, changed = recreate_tunnel_credentials(i, clear=True)
+        app.logger.info(
+            '[UPSTREAM-AUTH-CLEAR] SUCCESS old_id=%s new_id=%s changed=%s',
+            i, new_id, changed
+        )
+        flash(f'اعتبارنامه مقصد حذف شد؛ تونل با همان دامنه، DNS و تنظیمات قبلی با شناسه {new_id} دوباره ساخته و اجرا شد.')
+    except LookupError:
+        app.logger.exception('[UPSTREAM-AUTH-CLEAR] Tunnel not found id=%s', i)
+        abort(404)
+    except Exception as e:
+        app.logger.exception('[UPSTREAM-AUTH-CLEAR] FAILED tunnel_id=%s error=%s', i, e)
+        flash('حذف اعتبارنامه و بازسازی تونل انجام نشد: ' + str(e))
     return redirect('/')
 
 @app.route('/api/tunnels/<int:i>/credentials',methods=['PUT','PATCH','DELETE'])
