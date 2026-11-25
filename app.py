@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import os,re,sqlite3,subprocess,secrets,hmac,time,threading,shlex,pwd,socket,select,socketserver,ipaddress,shutil,concurrent.futures,ssl,json
+import os,re,sqlite3,subprocess,secrets,hmac,time,threading,shlex,pwd,socket,select,socketserver,ipaddress,shutil,concurrent.futures,ssl,json,fcntl
 from functools import wraps
+from contextlib import contextmanager
 from flask import Flask,request,redirect,session,render_template_string,flash,abort,jsonify,url_for
 from markupsafe import escape
 
@@ -57,7 +58,7 @@ def apply_panel_base_path(response):
             response.set_data(body)
     return response
 PASSWORD=open('/etc/slipstream-panel/admin.password').read().strip()
-API_TOKEN=os.environ.get('SLIPSTREAM_API_TOKEN','').strip() or PASSWORD
+API_TOKEN=PASSWORD
 
 HTML=r'''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Slipstream Manager</title><style>
 :root{color-scheme:dark;--bg:#080f1e;--surface:#111d31;--surface2:#0c1729;--line:#263b59;--txt:#edf4ff;--muted:#9aacc7;--blue:#438cff;--cyan:#37d6d0;--green:#25c58b;--red:#ff667c;--amber:#ffc45c;--shadow:0 16px 42px rgba(0,0,0,.24)}
@@ -616,6 +617,19 @@ def make_unit(r, reload_systemd=True):
         if z.returncode!=0:
             raise RuntimeError((z.stderr or z.stdout).strip() or 'systemd daemon-reload failed')
 
+
+@contextmanager
+def tunnel_mutation_lock():
+    # Thread lock plus flock protects against concurrent requests and multiple WSGI workers.
+    with tunnel_mutation_lock():
+        os.makedirs(APP,exist_ok=True)
+        fd=os.open(APP+'/tunnel-mutations.lock',os.O_CREAT|os.O_RDWR,0o600)
+        try:
+            fcntl.flock(fd,fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd,fcntl.LOCK_UN)
+            os.close(fd)
 
 def _forget_tunnel_runtime_state(tunnel_id,port):
     global LB_RR_INDEX
