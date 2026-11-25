@@ -534,7 +534,7 @@ def sample_traffic(force=False):
         rows=c.execute('SELECT id FROM tunnels').fetchall()
         counters=read_systemd_traffic(rows)
         for row in rows:
-            i=int(row['id']); name=unit(i)
+            i=int(row['id']); name=f'slipstream-auth-{i}'
             if name not in counters:
                 TRAFFIC_CACHE[i]={'ready':False,'rx':0,'tx':0,'rx_rate':0,'tx_rate':0}
                 continue
