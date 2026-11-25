@@ -64,9 +64,9 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Automatically select healthy and active tunnel backends.
 - Temporarily exclude unhealthy or unreachable tunnels.
 - Reintroduce recovered tunnels after the cooldown period.
-- Negotiate SOCKS5 authentication end-to-end with the remote proxy, using the same RFC1929 handshake as the DNS scanner.
-- When panel authentication is enabled, require Username/Password from the client and pass the credentials through the tunnel to the remote SOCKS5 server.
-- When panel authentication is disabled, support client-supplied Username/Password or no-auth, according to the methods offered by the client and accepted by the remote proxy.
+- Keep client-side panel authentication independent from the authentication required by the remote SOCKS5 server.
+- When panel authentication is enabled, validate the client's Username/Password against the tunnel settings. If the remote server requires RFC1929, the gateway sends the saved panel credentials; if the remote server selects No Auth, the gateway completes the local login and continues without sending credentials upstream.
+- When panel authentication is disabled, negotiate the methods offered by the client and accepted by the remote server, forwarding client-supplied RFC1929 credentials when required.
 - Restrict access to trusted IPv4/IPv6 addresses or CIDR ranges using the load-balancer allowlist.
 
 ### 📊 Traffic Monitoring
@@ -202,9 +202,9 @@ Slipstream Panel یک رابط وب متمرکز برای مدیریت نمون�
 - انتخاب خودکار Backendهای تونل سالم و فعال.
 - خارج کردن موقت تونل‌های ناسالم یا غیرقابل دسترس از چرخه.
 - بازگرداندن تونل‌های بازیابی‌شده پس از پایان زمان Cooldown.
-- مذاکره مستقیم و سرتاسری احراز هویت SOCKS5 با پراکسی مقصد، با همان روش RFC1929 که اسکنر DNS استفاده می‌کند.
-- با فعال بودن احراز هویت در پنل، کلاینت باید Username/Password بفرستد و Gateway اطلاعات ورود را از تونل به SOCKS5 مقصد منتقل می‌کند.
-- با غیرفعال بودن احراز هویت پنل، ورود با Username/Password کلاینت یا اتصال بدون رمز، مطابق روش‌های پشتیبانی‌شده توسط کلاینت و سرور مقصد امکان‌پذیر است.
+- احراز هویت کلاینت در پنل از روش احراز هویت موردنیاز SOCKS5 مقصد مستقل است.
+- با فعال بودن احراز هویت پنل، Username/Password کلاینت با اطلاعات همان تونل بررسی می‌شود. اگر سرور مقصد RFC1929 بخواهد، Gateway اطلاعات ذخیره‌شده پنل را ارسال می‌کند؛ اگر مقصد No Auth انتخاب کند، ورود محلی تأیید می‌شود و ادامه اتصال بدون ارسال رمز به مقصد انجام می‌گیرد.
+- با غیرفعال بودن احراز هویت پنل، روش‌های اعلام‌شده از طرف کلاینت و پشتیبانی‌شده توسط سرور مقصد مذاکره می‌شوند و در صورت نیاز، اطلاعات RFC1929 کلاینت به مقصد منتقل می‌شود.
 - دسترسی لودبالانسر با فهرست IPهای مجاز IPv4/IPv6 و محدوده‌های CIDR محدود می‌شود.
 
 ### 📊 پایش ترافیک
