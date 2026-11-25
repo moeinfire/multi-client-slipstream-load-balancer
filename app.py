@@ -836,9 +836,10 @@ def _dns_scan_worker(domain,resolvers,cert,timeout_sec,workers,username,password
         with DNS_SCAN_LOCK:DNS_SCAN_STATE['phase']='ping'
         _run_parallel(resolvers,workers,lambda r:_dns_scan_ping(r,2),'ping_results','ping_done')
         with DNS_SCAN_LOCK:
-            # ICMP is informational only; every submitted resolver must reach the
-            # full Slipstream + authenticated SOCKS5 + HTTPS test in stage 2.
-            candidates=list(resolvers)
+            # Stage 2 must only test resolvers that successfully replied to
+            # the stage-1 ICMP ping. Failed or timed-out ping targets are excluded.
+            ping_success={item['resolver'] for item in DNS_SCAN_STATE['ping_results'] if item.get('ok')}
+            candidates=[resolver for resolver in resolvers if resolver in ping_success]
             DNS_SCAN_STATE['latency_total']=len(candidates)
             if not DNS_SCAN_STATE['cancel'] and candidates:DNS_SCAN_STATE['phase']='latency'
         if not DNS_SCAN_STATE['cancel'] and candidates:
