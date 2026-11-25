@@ -632,7 +632,6 @@ def tunnel_mutation_lock():
             os.close(fd)
 
 def _forget_tunnel_runtime_state(tunnel_id,port):
-    global LB_RR_INDEX
     LOG_OFFSETS.pop(int(tunnel_id),None)
     SUSPECT_SINCE.pop(int(tunnel_id),None)
     with TRAFFIC_LOCK:
@@ -640,7 +639,6 @@ def _forget_tunnel_runtime_state(tunnel_id,port):
         TRAFFIC_CACHE.pop('_sampled_at',None)
     with LB_LOCK:
         LB_QUARANTINED.pop(int(port),None)
-        LB_RR_INDEX=0
 
 def _remove_tunnel_runtime(row):
     i=int(row['id']); names=(f'slipstream-auth-{i}',unit(i))
