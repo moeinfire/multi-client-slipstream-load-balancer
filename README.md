@@ -42,7 +42,35 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 - Edit DNS settings independently for each tunnel.
 - Support multiple resolver entries in `IP:PORT` format.
 
-### 🔍 Advanced DNS Scanner
+#
+### 🔐 External Tunnel Credential API
+
+The panel exposes an authenticated API for changing or clearing the upstream SOCKS5 credentials of a tunnel. Both this API and the web UI use the same tunnel-recreation workflow. The tunnel receives a new ID; its domain, DNS resolvers, local port, certificate, enabled/disabled state, and other tunnel settings are preserved. Existing connections on that tunnel may be interrupted during recreation.
+
+Authentication: send the panel admin password in the `X-API-Key` header or as a `Bearer` token in the `Authorization` header. For deployments that want a separate API secret, set `SLIPSTREAM_API_TOKEN` in the panel service environment; if unset, the admin password is used.
+
+Update credentials:
+
+```http
+PUT /api/tunnels/12/credentials
+X-API-Key: YOUR_API_TOKEN
+Content-Type: application/json
+
+{"username":"socks-user","password":"socks-password"}
+```
+
+A successful response contains `ok`, `changed`, `previous_id`, and the new `id`. Use the returned new ID for subsequent requests.
+
+Clear credentials and disable upstream authentication for that tunnel:
+
+```http
+DELETE /api/tunnels/12/credentials
+X-API-Key: YOUR_API_TOKEN
+```
+
+The endpoint also accepts `PATCH` with the same JSON body as `PUT`. Requests require both non-empty credential fields; use `DELETE` to clear them. Responses use HTTP 401 for failed authentication, 404 for an unknown tunnel, 400 for invalid input, and 500 for a failed recreation/rollback operation.
+
+## 🔍 Advanced DNS Scanner
 
 - Two-stage DNS testing workflow.
 - First-stage ICMP Ping testing for DNS resolver IPs.
@@ -147,6 +175,34 @@ MIT License
 <a id="-نسخه-فارسی"></a>
 
 <div dir="rtl">
+
+
+### 🔐 API خارجی مدیریت اعتبارنامه تونل
+
+برای تغییر یا حذف نام کاربری و رمز SOCKS5 مقصد هر تونل، API احراز هویت‌شده در دسترس است. پنل و رابط وب از یک مسیر مشترک برای بازسازی تونل استفاده می‌کنند. پس از تغییر، تونل شناسه جدید می‌گیرد؛ دامنه، DNSها، پورت محلی، گواهی، وضعیت فعال/متوقف و سایر تنظیمات تونل حفظ می‌شوند. هنگام بازسازی، اتصال‌های جاری همان تونل ممکن است قطع شوند.
+
+احراز هویت: رمز مدیریت پنل را در هدر `X-API-Key` یا به‌صورت توکن `Bearer` در هدر `Authorization` بفرستید. برای استفاده از کلید جداگانه، متغیر محیطی `SLIPSTREAM_API_TOKEN` را در محیط سرویس پنل تنظیم کنید؛ در صورت تنظیم‌نشدن، رمز مدیریت پنل به‌عنوان کلید API استفاده می‌شود.
+
+تغییر اعتبارنامه:
+
+```http
+PUT /api/tunnels/12/credentials
+X-API-Key: YOUR_API_TOKEN
+Content-Type: application/json
+
+{"username":"socks-user","password":"socks-password"}
+```
+
+پاسخ موفق شامل `ok`، `changed`، شناسه قبلی در `previous_id` و شناسه جدید در `id` است. برای درخواست‌های بعدی از شناسه جدید استفاده کنید.
+
+حذف اعتبارنامه و غیرفعال‌کردن احراز هویت مقصد:
+
+```http
+DELETE /api/tunnels/12/credentials
+X-API-Key: YOUR_API_TOKEN
+```
+
+متد `PATCH` نیز با همان JSON متد `PUT` پشتیبانی می‌شود. برای تغییر، هر دو فیلد نام کاربری و رمز باید غیرخالی باشند؛ برای حذف، از `DELETE` استفاده کنید. کدهای پاسخ: `401` احراز هویت ناموفق، `404` تونل ناموجود، `400` ورودی نامعتبر و `500` خطا در بازسازی یا بازیابی تونل.
 
 # 🇮🇷 نسخه فارسی
 
