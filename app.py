@@ -121,7 +121,7 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function bytes(v){if(v===null||v===undefined)return 'غیرفعال';let n=Math.max(0,Number(v));if(n<1024)return n.toFixed(0)+' B';let u=['KB','MB','GB','TB'];n/=1024;let i=0;while(n>=1024&&i<u.length-1){n/=1024;i++}return n.toFixed(2)+' '+u[i]}
 function rate(v){return bytes(v)+'/s'}
-const statusApiUrl={{ url_for('api')|tojson }};
+const statusApiUrl='/api/status';
 let liveRefreshBusy=false;
 async function refresh(){
  if(liveRefreshBusy)return;
