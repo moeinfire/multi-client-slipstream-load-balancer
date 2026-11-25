@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # Support both local installation and one-command online installation.
 # If this script was launched remotely, download the project source and re-run
 # this same installer from the extracted archive.
-if [[ ! -f "$SCRIPT_DIR/app.py" || ! -f "$SCRIPT_DIR/slip-manager.py" || ! -f "$SCRIPT_DIR/systemd/slip.service" ]]; then
+if [[ ! -f "$SCRIPT_DIR/app.py" || ! -f "$SCRIPT_DIR/slip-manager.py" ]]; then
   if ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
     echo "Installing required download tools..."
     apt-get update
@@ -40,7 +40,7 @@ if [[ ! -f "$SCRIPT_DIR/app.py" || ! -f "$SCRIPT_DIR/slip-manager.py" || ! -f "$
   echo "Extracting project files..."
   tar -xzf "$ARCHIVE" --strip-components=1 -C "$SOURCE_DIR"
 
-  for file in install.sh app.py slip-manager.py systemd/slip.service; do
+  for file in install.sh app.py slip-manager.py; do
     if [[ ! -f "$SOURCE_DIR/$file" ]]; then
       echo "ERROR: Required project file is missing from the downloaded archive: $file"
       exit 1
@@ -182,11 +182,36 @@ PY
 
 download_slipstream_binary
 
-# Install the standalone Slipstream manager and its systemd unit.
+# Install the standalone Slipstream manager.
 install -m 0750 "$SCRIPT_DIR/slip-manager.py" "$APP/slip-manager.py"
 install -d -m 0755 /etc/systemd/system
-install -m 0644 "$SCRIPT_DIR/systemd/slip.service" /etc/systemd/system/slip.service
 install -d -m 0755 /var/log/slipstream
+
+# Generate the standalone systemd unit directly from this installer.
+cat > /etc/systemd/system/slip.service <<'EOF_SLIP_UNIT'
+[Unit]
+Description=Slipstream Standalone Manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=SLIPSTREAM_BIN=/usr/local/bin/slipstream-client
+Environment=SLIPSTREAM_RESOLVER=8.8.8.8:53
+Environment=SLIPSTREAM_TARGETS=r.2222.ir:20817
+Environment=SLIPSTREAM_LOGDIR=/var/log/slipstream
+ExecStart=/usr/bin/python3 -u /opt/slipstream-panel/slip-manager.py
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+User=root
+WorkingDirectory=/opt/slipstream-panel
+
+[Install]
+WantedBy=multi-user.target
+EOF_SLIP_UNIT
+chmod 0644 /etc/systemd/system/slip.service
 
 chown -R root:root "$APP"
 printf '%s' "$PANEL_PORT" > "$CONF/panel.port"
