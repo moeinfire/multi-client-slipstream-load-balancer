@@ -325,10 +325,29 @@ class LBHandler(socketserver.BaseRequestHandler):
             methods=lb_recv_exact(client,greeting[1])
             # The load balancer itself does not request credentials.
             # Credentials are configured per tunnel and used only upstream.
-            if 0 not in methods:
+            if 0 in methods:
+                client.sendall(b'\x05\x00')
+            elif 2 in methods:
+                # Compatibility for SOCKS5 clients configured with credentials:
+                # accept RFC1929 at the LB edge, but do not forward these
+                # client-supplied values to the destination tunnel.
+                client.sendall(b'\x05\x02')
+                if lb_recv_exact(client,1)!=b'\x01':
+                    return
+                ulen=lb_recv_exact(client,1)[0]
+                if not ulen:
+                    client.sendall(b'\x01\x01')
+                    return
+                lb_recv_exact(client,ulen)
+                plen=lb_recv_exact(client,1)[0]
+                if not plen:
+                    client.sendall(b'\x01\x01')
+                    return
+                lb_recv_exact(client,plen)
+                client.sendall(b'\x01\x00')
+            else:
                 client.sendall(b'\x05\xff')
                 return
-            client.sendall(b'\x05\x00')
 
             picked=choose_backend()
             if not picked:
