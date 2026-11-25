@@ -478,7 +478,7 @@ def unit(i):return f'slipstream-client-{i}'
 def ctl(*a):return subprocess.run(['/usr/bin/systemctl',*a],capture_output=True,text=True,timeout=15)
 def active(i):return ctl('is-active','--quiet',unit(i)).returncode==0
 def update(i,**f):
-    allowed={'enabled','health_state','retry_at','last_started','last_check','last_error','failure_count','last_down','resolver','auth_enabled','auth_username','auth_password'}
+    allowed={'enabled','health_state','retry_at','last_started','last_check','last_error','failure_count','last_down','resolver','auth_enabled','auth_username','auth_password','upstream_username','upstream_password'}
     if not set(f)<=allowed:raise ValueError('bad update')
     c=db();c.execute('UPDATE tunnels SET '+','.join(k+'=?' for k in f)+' WHERE id=?',(*f.values(),i));c.commit();c.close()
 def log_path(r):
