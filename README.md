@@ -1,116 +1,129 @@
-# Multi-Client Slipstream Panel with Load Balancer & dns scanner
+# Multi-Client Slipstream Panel with Load Balancer & DNS Scanner
 
-<img width="1408" height="768" alt="1vvzzm1vvzzm1vvz" src="https://github.com/user-attachments/assets/fed4fb2d-00fa-4fb8-a1ee-730c54b16757" />
+<p align="center">
+  <a href="#english">🇬🇧 English</a> · <a href="#فارسی">🇮🇷 فارسی</a>
+</p>
 
-A self-hosted web-based management panel for running, monitoring, and managing multiple Slipstream client tunnels on Linux servers.
+<img width="1408" height="768" alt="Slipstream Panel screenshot" src="https://github.com/user-attachments/assets/fed4fb2d-00fa-4fb8-a1ee-730c54b16757" />
 
-Slipstream Panel provides a centralized web interface for managing tunnel instances, configuring DNS resolvers, monitoring connection health, tracking traffic usage, and distributing SOCKS5 connections across healthy tunnels.
+<a id="english"></a>
+<details open>
+<summary><strong>🇬🇧 English</strong></summary>
 
-## ✨ Features
+A self-hosted web panel for running, monitoring, and managing multiple Slipstream client tunnels on Linux servers.
 
-### 🚇 Tunnel Management
-- Add and configure multiple Slipstream client instances.
-- Automatically create and manage systemd services for tunnel instances.
-- Start, stop, restart, and delete individual tunnels.
-- Perform bulk operations to start, stop, or restart multiple tunnels.
-- Configure a local listening port for each tunnel.
-- Optional PEM certificate path configuration.
-- View individual tunnel logs for troubleshooting.
+### ✨ Features
+- **Tunnel management:** Add, configure, start, stop, restart, delete, and monitor multiple Slipstream tunnels.
+- **systemd integration:** Automatically create and manage a separate systemd service for each tunnel.
+- **DNS management:** Configure multiple DNS resolvers per tunnel, set global defaults, or apply DNS settings to all existing tunnels. Supports `IP:PORT` entries.
+- **Advanced DNS scanner:** Two-stage testing with ICMP Ping and full Slipstream tunnel tests, SOCKS5 Username/Password authentication, Google HTTPS verification, TLS validation, HTTP 204 checking, latency measurement, configurable workers, and selectable results.
+- **SOCKS5 load balancer:** Round Robin distribution across healthy active tunnels, automatic exclusion of unhealthy backends, recovery after cooldown, and SOCKS5 authentication forwarding.
+- **Traffic monitoring:** Per-tunnel incoming/outgoing traffic, total usage, approximate speed, and traffic counter reset. Uses systemd per-service IP accounting.
+- **Connection health monitoring:** Detect connection-ready, connection-closed, and client-error events; display failures; allow a recovery window; and automatically restart failed tunnels after cooldown.
+- **Logs and security:** Per-tunnel logs, password-protected panel, CSRF protection, and separate application configuration/secrets.
+- **Deployment:** Installation and update scripts for Ubuntu/Debian-based systems.
 
-### 🌐 DNS Management
-- Configure multiple DNS resolvers for each tunnel.
-- Set global default DNS resolvers for newly created tunnels.
-- Apply DNS configuration to all existing tunnels.
-- Edit DNS settings independently for each tunnel.
-- Support multiple resolver entries in `IP:PORT` format.
-
-### 🔍 Advanced DNS Scanner
-- Two-stage DNS testing workflow.
-- First-stage ICMP Ping testing for DNS resolver IPs.
-- Second-stage end-to-end Slipstream tunnel testing.
-- SOCKS5 Username/Password authentication during the test.
-- HTTPS connectivity verification against Google.
-- TLS certificate validation and HTTP 204 response verification.
-- Measure end-to-end latency and sort successful DNS results.
-- Configurable worker count and test timeout.
-- Select and copy successful DNS resolver addresses.
-- Temporary test tunnels do not modify or restart existing production tunnels.
-
-### ⚖️ SOCKS5 Load Balancer
-- Built-in SOCKS5 load balancer.
-- Round Robin distribution for new connections.
-- Automatically select healthy and active tunnel backends.
-- Temporarily exclude unhealthy or unreachable tunnels.
-- Reintroduce recovered tunnels after the cooldown period.
-- Forward SOCKS5 authentication to the selected backend.
-
-### 📊 Traffic Monitoring
-- Monitor incoming and outgoing traffic for each tunnel.
-- Display total traffic usage per instance.
-- Calculate approximate transfer speeds using periodic sampling.
-- Reset traffic counters for individual tunnels.
-- Traffic accounting based on systemd per-service IP accounting.
-
-### ❤️ Connection Health Monitoring
-- Periodically inspect each tunnel's service logs.
-- Detect connection-ready, connection-closed, and client-error events.
-- Display connection status and failure information.
-- Allow a recovery window before declaring a tunnel failed.
-- Automatically restart failed tunnels after a cooldown period.
-- Detect process exits and address-in-use errors.
-
-### 🔐 Access and Deployment
-- Password-protected web interface.
-- CSRF protection for management actions.
-- Automatically generated initial administrator password.
-- Separate storage for application secrets and configuration.
-- systemd service integration.
-- Installation and update scripts for Ubuntu/Debian-based systems.
-
-## 🧰 Requirements
-
+### 🧰 Requirements
 - Ubuntu or Debian-based Linux server.
 - Root or sudo access.
-- Python 3.
-- Flask.
+- Python 3 and Flask.
 - The Slipstream client binary is bundled in the repository and installed automatically.
 
-## 🚀 Quick Installation (One Command)
+### 🚀 Quick Installation
 
-Log in as root (`sudo -i` if needed), then run this single command. Git is not required:
+Log in as root (use `sudo -i` if needed). Git is not required:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install-online.sh)
 ```
 
-The online installer downloads the latest archive from this repository's `master` branch and runs the project installer. It needs `curl` to download the command; it installs other missing download tools when possible.
+The online installer downloads the latest archive from the `master` branch and runs the project installer. It requires `curl` and installs other missing download tools when possible.
 
-## 🗑️ Complete Uninstallation (One Command)
-
-Log in as root, then run:
+### 🗑️ Complete Uninstallation
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh)
 ```
 
-The uninstaller asks you to type `REMOVE` before deleting anything. To skip the confirmation prompt:
+The uninstaller asks you to type `REMOVE` before deleting anything. To skip confirmation:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh) --yes
 ```
 
-The uninstaller stops and removes the panel service, the optional standalone `slip.service` (only when its service file matches this project), and tunnel services generated by the panel. It also removes the panel application, database, credentials/configuration, project log directories, and the Slipstream client binary recorded by the installer.
+The uninstaller removes the panel service, matching project-generated tunnel services, application files, database, credentials/configuration, project logs, and the Slipstream binary recorded by the installer. It leaves external certificates, firewall rules, unrelated services, and system-wide packages (including Python/Flask) untouched. The dedicated `slipstream` account/group is removed only if it matches the installer-created account and is not in use.
 
-For safety, external certificate files, firewall rules, unrelated services, and system-wide packages (including Python/Flask) are left untouched. The dedicated `slipstream` system account/group is removed only when its settings match the account created by this installer and it is not in use.
+### ⚠️ Important Notes
+- Tunnel configurations and generated systemd tunnel services are created on the server; they are not included in the repository.
+- Configure your own domains, DNS resolvers, certificates, and tunnel settings.
+- Do not expose the panel directly to the public internet without appropriate access restrictions and HTTPS.
+- Review the source code and security configuration before production use.
 
-## ⚠️ Important Notes
-
-- The Slipstream client binary is included in the repository and installed by the installer.
-- Tunnel configurations and systemd tunnel services are not included.
-- Each user must configure their own domains, DNS resolvers, certificates, and tunnel settings.
-- The panel should not be exposed directly to the public internet without appropriate access restrictions and HTTPS protection.
-- Review the source code and security configuration before deploying in production.
-
-## 📄 License
-
+### 📄 License
 MIT License
+
+</details>
+
+<a id="فارسی"></a>
+<details>
+<summary><strong>🇮🇷 فارسی</strong></summary>
+
+یک پنل مدیریتی تحت وب و قابل میزبانی روی سرور شخصی برای راه‌اندازی، نظارت و مدیریت چندین تونل Slipstream Client در سرورهای لینوکسی.
+
+### ✨ امکانات
+- **مدیریت تونل‌ها:** افزودن، پیکربندی، شروع، توقف، راه‌اندازی مجدد، حذف و نظارت بر چندین تونل Slipstream.
+- **یکپارچگی با systemd:** ساخت و مدیریت خودکار یک سرویس systemd مجزا برای هر تونل.
+- **مدیریت DNS:** تنظیم چند DNS Resolver برای هر تونل، تعیین DNS پیش‌فرض سراسری یا اعمال تنظیمات روی تمام تونل‌های موجود. پشتیبانی از فرمت `IP:PORT`.
+- **اسکنر پیشرفته DNS:** آزمایش دومرحله‌ای شامل Ping از نوع ICMP و تست کامل تونل Slipstream، احراز هویت Username/Password در SOCKS5، بررسی HTTPS گوگل، اعتبارسنجی TLS، بررسی پاسخ HTTP 204، اندازه‌گیری تأخیر، تنظیم تعداد Worker و انتخاب نتایج.
+- **لودبالانسر SOCKS5:** توزیع اتصال‌ها با روش Round Robin بین تونل‌های سالم و فعال، خارج کردن خودکار تونل‌های ناسالم از چرخه، بازگرداندن تونل پس از زمان بازیابی و انتقال احراز هویت SOCKS5.
+- **پایش ترافیک:** نمایش ترافیک ورودی و خروجی هر تونل، حجم کل، سرعت تقریبی و امکان صفر کردن شمارنده ترافیک. مبتنی بر قابلیت IP Accounting در systemd برای هر سرویس.
+- **پایش سلامت اتصال:** تشخیص پیام‌های connection ready، connection closed و client error؛ نمایش خطاها؛ در نظر گرفتن مهلت بازیابی و راه‌اندازی مجدد خودکار تونل‌های خراب پس از زمان انتظار.
+- **لاگ و امنیت:** مشاهده لاگ اختصاصی هر تونل، پنل محافظت‌شده با رمز عبور، محافظت CSRF و ذخیره‌سازی جداگانه تنظیمات و اطلاعات محرمانه برنامه.
+- **نصب و به‌روزرسانی:** اسکریپت‌های نصب و به‌روزرسانی برای سیستم‌های مبتنی بر Ubuntu و Debian.
+
+### 🧰 پیش‌نیازها
+- سرور لینوکسی مبتنی بر Ubuntu یا Debian.
+- دسترسی Root یا Sudo.
+- Python 3 و Flask.
+- فایل اجرایی Slipstream Client داخل مخزن قرار دارد و به‌صورت خودکار نصب می‌شود.
+
+### 🚀 نصب سریع
+
+با کاربر Root وارد سرور شوید (در صورت نیاز `sudo -i` را اجرا کنید). نیازی به نصب Git نیست:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install-online.sh)
+```
+
+نصب‌کننده آنلاین آخرین آرشیو شاخه `master` را دریافت و نصب می‌کند. برای دریافت دستور به `curl` نیاز دارد و در صورت امکان ابزارهای دانلود موردنیاز دیگر را نیز نصب می‌کند.
+
+### 🗑️ حذف کامل
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh)
+```
+
+اسکریپت حذف پیش از انجام عملیات از شما می‌خواهد عبارت `REMOVE` را وارد کنید. برای رد کردن مرحله تأیید:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/uninstall.sh) --yes
+```
+
+اسکریپت حذف، سرویس پنل، سرویس‌های تونل ساخته‌شده توسط پروژه، فایل‌های برنامه، پایگاه داده، اطلاعات ورود و تنظیمات، لاگ‌های پروژه و فایل اجرایی Slipstream ثبت‌شده توسط نصب‌کننده را حذف می‌کند. فایل‌های گواهی خارجی، قوانین فایروال، سرویس‌های نامرتبط و بسته‌های سراسری سیستم (از جمله Python و Flask) دست‌نخورده باقی می‌مانند. حساب و گروه اختصاصی `slipstream` فقط در صورتی حذف می‌شوند که متعلق به همین نصب‌کننده باشند و در حال استفاده نباشند.
+
+### ⚠️ نکات مهم
+- تنظیمات تونل‌ها و سرویس‌های systemd تولیدشده روی سرور ایجاد می‌شوند و داخل مخزن قرار ندارند.
+- دامنه‌ها، DNS Resolverها، گواهی‌ها و تنظیمات تونل را باید خودتان پیکربندی کنید.
+- پنل را بدون محدودیت دسترسی مناسب و HTTPS مستقیماً در اینترنت عمومی قرار ندهید.
+- پیش از استفاده عملیاتی، کد منبع و تنظیمات امنیتی را بررسی کنید.
+
+### 📄 مجوز
+MIT License
+
+</details>
+
+---
+
+<p align="center">
+  <a href="#english">🇬🇧 English</a> · <a href="#فارسی">🇮🇷 فارسی</a> · <a href="#multi-client-slipstream-panel-with-load-balancer--dns-scanner">⬆ Back to top</a>
+</p>
