@@ -40,7 +40,7 @@ if [[ ! -f "$SCRIPT_DIR/app.py" ]]; then
   echo "Extracting project files..."
   tar -xzf "$ARCHIVE" --strip-components=1 -C "$SOURCE_DIR"
 
-  for file in install.sh app.py; do
+  for file in install.sh app.py socks5-gateway.py; do
     if [[ ! -f "$SOURCE_DIR/$file" ]]; then
       echo "ERROR: Required project file is missing from the downloaded archive: $file"
       exit 1
@@ -128,8 +128,9 @@ if [[ "${KEEP_PASSWORD:-Y}" =~ ^[Nn]$ ]]; then
   chmod 600 "$CONF/admin.password"
 fi
 
-# Always deploy the app.py shipped beside this installer (including scanner fixes).
+# Deploy the application and per-tunnel SOCKS5 authentication gateway.
 install -m 0750 "$SCRIPT_DIR/app.py" "$APP/app.py"
+install -m 0750 "$SCRIPT_DIR/socks5-gateway.py" "$APP/socks5-gateway.py"
 echo "Installed DNS scanner: stage two is limited to IPs that passed stage-one ping."
 
 # Always download the Linux AMD64 executable from the latest upstream GitHub Release.
