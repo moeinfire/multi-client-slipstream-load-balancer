@@ -250,19 +250,13 @@ html[lang="en"] .timer{direction:ltr}
 
 def db():
     os.makedirs(APP,exist_ok=True); c=sqlite3.connect(DB,timeout=10); c.row_factory=sqlite3.Row
-    c.execute("CREATE TABLE IF NOT EXISTS tunnels(id INTEGER PRIMARY KEY,domain TEXT UNIQUE,resolver TEXT,port INTEGER UNIQUE,cert TEXT DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,health_state TEXT NOT NULL DEFAULT 'recovering',retry_at REAL,last_started REAL,last_check REAL,last_error TEXT DEFAULT '',failure_count INTEGER NOT NULL DEFAULT 0,last_down REAL,auth_enabled INTEGER NOT NULL DEFAULT 0,auth_username TEXT DEFAULT '',auth_password TEXT DEFAULT '')")
+    c.execute("CREATE TABLE IF NOT EXISTS tunnels(id INTEGER PRIMARY KEY,domain TEXT UNIQUE,resolver TEXT,port INTEGER UNIQUE,cert TEXT DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,health_state TEXT NOT NULL DEFAULT 'recovering',retry_at REAL,last_started REAL,last_check REAL,last_error TEXT DEFAULT '',failure_count INTEGER NOT NULL DEFAULT 0,last_down REAL,auth_enabled INTEGER NOT NULL DEFAULT 0,auth_username TEXT DEFAULT '',auth_password TEXT DEFAULT '',upstream_username TEXT DEFAULT '',upstream_password TEXT DEFAULT '')")
     cols={r['name'] for r in c.execute('PRAGMA table_info(tunnels)')}
-    for n,d in {'enabled':'INTEGER NOT NULL DEFAULT 1','health_state':"TEXT NOT NULL DEFAULT 'recovering'",'retry_at':'REAL','last_started':'REAL','last_check':'REAL','last_error':"TEXT DEFAULT ''",'failure_count':'INTEGER NOT NULL DEFAULT 0','last_down':'REAL','auth_enabled':'INTEGER NOT NULL DEFAULT 0','auth_username':"TEXT DEFAULT ''",'auth_password':"TEXT DEFAULT ''"}.items():
+    for n,d in {'enabled':'INTEGER NOT NULL DEFAULT 1','health_state':"TEXT NOT NULL DEFAULT 'recovering'",'retry_at':'REAL','last_started':'REAL','last_check':'REAL','last_error':"TEXT DEFAULT ''",'failure_count':'INTEGER NOT NULL DEFAULT 0','last_down':'REAL','auth_enabled':'INTEGER NOT NULL DEFAULT 0','auth_username':"TEXT DEFAULT ''",'auth_password':"TEXT DEFAULT ''",'upstream_username':"TEXT DEFAULT ''",'upstream_password':"TEXT DEFAULT ''"}.items():
         if n not in cols:c.execute(f'ALTER TABLE tunnels ADD COLUMN {n} {d}')
     c.execute('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_port',?)",(str(LB_DEFAULT_PORT),))
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_enabled','1')")
-    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_auth_enabled','0')")
-    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_auth_username','')")
-    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_auth_password','')")
-    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_upstream_username','')")
-    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_upstream_password','')")
-    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_allowed_ips','127.0.0.1')")
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('global_resolvers','1.1.1.1:53')")
     c.execute('CREATE TABLE IF NOT EXISTS traffic_stats(tunnel_id INTEGER PRIMARY KEY, rx_total INTEGER NOT NULL DEFAULT 0, tx_total INTEGER NOT NULL DEFAULT 0, last_rx INTEGER NOT NULL DEFAULT 0, last_tx INTEGER NOT NULL DEFAULT 0, last_sample REAL, rx_rate REAL NOT NULL DEFAULT 0, tx_rate REAL NOT NULL DEFAULT 0)')
     c.commit();return c
@@ -332,9 +326,9 @@ class LBHandler(socketserver.BaseRequestHandler):
             # The load balancer itself does not request credentials.
             # Credentials are configured per tunnel and used only upstream.
             if 0 not in methods:
-                client.sendall(b'\\x05\\xff')
+                client.sendall(b'\x05\xff')
                 return
-            client.sendall(b'\\x05\\x00')
+            client.sendall(b'\x05\x00')
 
             picked=choose_backend()
             if not picked:
@@ -351,25 +345,21 @@ class LBHandler(socketserver.BaseRequestHandler):
                 return
 
             # Always negotiate a real SOCKS5 method with the selected backend.
-            upstream.sendall(b'\\x05\\x02\\x00\\x02')
+            upstream.sendall(b'\x05\x02\x00\x02')
             selected=lb_recv_exact(upstream,2)
             if selected[0]!=5 or selected[1] not in (0,2):
                 lb_send_failure(client,1)
                 return
             if selected[1]==2:
-                if backend['auth_enabled']:
-                    backend_user=(backend['auth_username'] or '').encode('utf-8')
-                    backend_pass=(backend['auth_password'] or '').encode('utf-8')
-                else:
-                    backend_user=(backend['upstream_username'] or '').encode('utf-8')
-                    backend_pass=(backend['upstream_password'] or '').encode('utf-8')
+                backend_user=(backend['upstream_username'] or '').encode('utf-8')
+                backend_pass=(backend['upstream_password'] or '').encode('utf-8')
                 if not (1<=len(backend_user)<=255 and 1<=len(backend_pass)<=255):
                     lb_send_failure(client,1)
                     return
-                upstream.sendall(b'\\x01'+bytes((len(backend_user),))+backend_user+
+                upstream.sendall(b'\x01'+bytes((len(backend_user),))+backend_user+
                                  bytes((len(backend_pass),))+backend_pass)
                 auth_reply=lb_recv_exact(upstream,2)
-                if auth_reply!=b'\\x01\\x00':
+                if auth_reply!=b'\x01\x00':
                     lb_send_failure(client,2)
                     return
             client.settimeout(120)
@@ -1043,7 +1033,7 @@ def dns_scan_stop():
 @app.route('/')
 @require_login
 def index():
-    ts=tunnels();return render_template_string(HTML,logged=True,tunnels=ts,healthy=sum(x['health_state']=='connected' for x in ts),cooling=sum(x['health_state']=='cooldown' for x in ts),pmin=PMIN,pmax=PMAX,csrf=csrf_token(),lb_port=int(get_setting('lb_port',str(LB_DEFAULT_PORT))),lb_enabled=get_setting('lb_enabled','1')=='1',lb_upstream_username=get_setting('lb_upstream_username',''),lb_backends=lb_backends(),global_resolvers=get_setting('global_resolvers','1.1.1.1:53'))
+    ts=tunnels();return render_template_string(HTML,logged=True,tunnels=ts,healthy=sum(x['health_state']=='connected' for x in ts),cooling=sum(x['health_state']=='cooldown' for x in ts),pmin=PMIN,pmax=PMAX,csrf=csrf_token(),lb_port=int(get_setting('lb_port',str(LB_DEFAULT_PORT))),lb_enabled=get_setting('lb_enabled','1')=='1',lb_backends=lb_backends(),global_resolvers=get_setting('global_resolvers','1.1.1.1:53'))
 @app.post('/dns/global')
 @require_login
 def dns_global():
