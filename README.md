@@ -91,7 +91,7 @@ Slipstream Panel provides a centralized web interface for managing tunnel instan
 Run this single command on an Ubuntu/Debian server (Git is not required):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install-online.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/moeinfire/multi-client-slipstream-load-balancer/master/install.sh)
 ```
 
 The online installer downloads the latest `master` branch archive and runs the project installer. `curl` must be available to start the command; the bootstrap installs `tar` and CA certificates if needed. Run it as root; if you are not already root, open a root shell first with `sudo -i`.
