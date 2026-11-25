@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os,re,sqlite3,subprocess,secrets,hmac,time,threading,shlex,pwd,socket,select,socketserver,ipaddress,shutil,concurrent.futures,ssl
+import os,re,sqlite3,subprocess,secrets,hmac,time,threading,shlex,pwd,socket,select,socketserver,ipaddress,shutil,concurrent.futures,ssl,json
 from functools import wraps
 from flask import Flask,request,redirect,session,render_template_string,flash,abort,jsonify,url_for
 from markupsafe import escape
@@ -113,10 +113,10 @@ a.btn{background:#263b58;border-color:#3a5274;box-shadow:none}
 <div class="top"><div><div class="brand">Slipstream Manager</div><div class="sub">مدیریت دامنه‌ها، DNS چندگانه و پایش اتصال Slipstream از روی لاگ</div><div class="small" id="live-status">به‌روزرسانی زنده: در حال اتصال...</div></div><div class="actions"><span class="pill">Ubuntu · systemd</span><a class="btn" href="/dns-scan">🔎 اسکن DNS</a><a class="btn" href="/logout">خروج</a></div></div>
 <div class="grid"><div class="stat">کل تونل‌ها<div class="num">{{tunnels|length}}</div></div><div class="stat">متصل<div class="num" id="healthy">{{healthy}}</div></div><div class="stat">در انتظار اتصال مجدد<div class="num" id="cooling">{{cooling}}</div></div><div class="stat">محدوده پورت<div class="num">{{pmin}}–{{pmax}}</div></div></div>
 <div class="card"><h3>🌐 مدیریت DNS کلی</h3><form method="post" action="/dns/global"><input type="hidden" name="csrf" value="{{csrf}}"><label>DNS Resolverهای عمومی (هر خط یک مورد، فرمت IP:PORT)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea><div class="actions" style="margin-top:12px"><button class="gray" name="mode" value="save">ذخیره به‌عنوان DNS پیش‌فرض</button><button class="green" name="mode" value="apply" onclick="return confirm('DNSهای واردشده روی تمام تونل‌ها اعمال و تونل‌های فعال به‌ترتیب ری‌استارت می‌شوند. ادامه می‌دهید؟')">اعمال روی همه تونل‌ها</button></div></form><div class="hint" style="margin-top:12px">ذخیره پیش‌فرض فقط روی دامنه‌هایی که از این به بعد اضافه می‌کنی اثر دارد. «اعمال روی همه» DNS تمام تونل‌های فعلی را جایگزین می‌کند و تونل‌های فعال را یکی‌یکی ری‌استارت می‌کند. برای تنظیم متفاوت هر تونل، از بخش ویرایش DNS همان ردیف استفاده کن.</div></div>
-<div class="card"><h3>＋ افزودن دامنه</h3><form method="post" action="/add"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه</label><input name="domain" placeholder="t.example.com" required></div><div><label>DNS Resolverها (هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت محلی (اختیاری)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="خودکار"></div><div><label>گواهی PEM (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div></div><p><button>افزودن و اجرای تونل</button></p></form><div class="hint">DNSها به شکل گزینه‌های تکرارشونده <code>--resolver</code> اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».</div></div>
-<div class="card"><h3>＋ افزودن گروهی دامنه‌ها</h3><form method="post" action="/add/bulk"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div style="grid-column:1/-1"><label>فهرست دامنه‌ها (هر خط یک دامنه)</label><textarea name="domains" rows="7" placeholder="t1.example.com&#10;t2.example.com&#10;t3.example.com" required></textarea></div><div><label>DNS Resolverها (مشترک برای همه، هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت شروع (اختیاری؛ پورت‌های بعدی به‌ترتیب تخصیص می‌یابند)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="تخصیص خودکار"></div><div><label>گواهی PEM مشترک (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div></div><p><button class="green">افزودن و اجرای گروهی</button></p></form><div class="hint">حداکثر ۵۰۰ دامنه در هر بار. دامنه‌های نامعتبر، تکراری یا دارای پورت غیرقابل‌استفاده پیش از ثبت بررسی می‌شوند. پورت‌ها برای هر تونل یکتا هستند و سرویس‌ها یکی‌یکی راه‌اندازی می‌شوند.</div></div>
+<div class="card"><h3>＋ افزودن دامنه</h3><form method="post" action="/add"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه</label><input name="domain" placeholder="t.example.com" required></div><div><label>DNS Resolverها (هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت محلی (اختیاری)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="خودکار"></div><div><label>گواهی PEM (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label><input style="width:auto" type="checkbox" name="auth_enabled" value="1"> فعال‌سازی احراز هویت SOCKS5 این تونل</label><input name="auth_username" placeholder="نام کاربری ورودی SOCKS5"><input name="auth_password" type="password" placeholder="رمز عبور ورودی SOCKS5"></div></div><p><button>افزودن و اجرای تونل</button></p></form><div class="hint">DNSها به شکل گزینه‌های تکرارشونده <code>--resolver</code> اجرا می‌شوند. وضعیت اتصال بر اساس پیام‌های خود Slipstream بررسی می‌شود: «connection ready»، «connection closed» و «client error».</div></div>
+<div class="card"><h3>＋ افزودن گروهی دامنه‌ها</h3><form method="post" action="/add/bulk"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div style="grid-column:1/-1"><label>فهرست دامنه‌ها (هر خط یک دامنه)</label><textarea name="domains" rows="7" placeholder="t1.example.com&#10;t2.example.com&#10;t3.example.com" required></textarea></div><div><label>DNS Resolverها (مشترک برای همه، هر خط یک مورد)</label><textarea name="resolvers" required>{{global_resolvers}}</textarea></div><div><label>پورت شروع (اختیاری؛ پورت‌های بعدی به‌ترتیب تخصیص می‌یابند)</label><input name="port" type="number" min="{{pmin}}" max="{{pmax}}" placeholder="تخصیص خودکار"></div><div><label>گواهی PEM مشترک (اختیاری)</label><input name="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label><input style="width:auto" type="checkbox" name="auth_enabled" value="1"> اعمال احراز هویت SOCKS5 روی همه تونل‌های این گروه</label><input name="auth_username" placeholder="نام کاربری مشترک"><input name="auth_password" type="password" placeholder="رمز عبور مشترک"></div></div><p><button class="green">افزودن و اجرای گروهی</button></p></form><div class="hint">حداکثر ۵۰۰ دامنه در هر بار. دامنه‌های نامعتبر، تکراری یا دارای پورت غیرقابل‌استفاده پیش از ثبت بررسی می‌شوند. پورت‌ها برای هر تونل یکتا هستند و سرویس‌ها یکی‌یکی راه‌اندازی می‌شوند.</div></div>
 <div class="card"><h3>⚖ لودبالانسر SOCKS5</h3><form method="post" action="/lb/settings"><input type="hidden" name="csrf" value="{{csrf}}"><div class="formgrid"><div><label>پورت خروجی لودبالانسر</label><input name="lb_port" type="number" min="1" max="65535" value="{{lb_port}}" required></div><div><label>وضعیت</label><div class="hint">{% if lb_enabled %}فعال — پورت خروجی در حال سرویس‌دهی است{% else %}غیرفعال{% endif %}</div><label style="margin-top:10px"><input style="width:auto" type="checkbox" name="lb_enabled" value="1" {% if lb_enabled %}checked{% endif %}> فعال‌سازی لودبالانسر</label></div></div><p><button class="green">ذخیره تنظیمات</button></p></form><div class="hint">آدرس ورودی: <code>SERVER_IP:{{lb_port}}</code> — هر اتصال جدید به روش Round Robin به یکی از تونل‌های سالم و فعال متصل می‌شود. تونل‌های ناسالم یا غیرقابل‌دسترسی از چرخه خارج می‌شوند و پس از ۵ دقیقه، در صورت سالم‌بودن، دوباره قابل انتخاب خواهند بود. احراز هویت SOCKS همانند تونل مقصد عبور داده می‌شود؛ این بخش دست‌دهی SOCKS5 را تغییر نمی‌دهد.</div><div class="small">تونل‌های حاضر در چرخه: {{lb_backends|join(', ') if lb_backends else 'هیچ تونل سالمی موجود نیست'}}</div></div>
-<div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
+<div class="card"><h3>تونل‌ها</h3><div class="hint">حجم و سرعت بر اساس حسابداری IP اختصاصی systemd برای هر سرویس است. برای تونل‌های فعلی، شمارش پس از راه‌اندازی مجدد همان سرویس آغاز می‌شود؛ این به‌روزرسانی به‌تنهایی تونل‌ها را قطع نمی‌کند. سرعت با نمونه‌گیری هر ۱۰ ثانیه محاسبه می‌شود.</div>{% if tunnels %}<div class="actions" style="justify-content:flex-start;margin:14px 0"><form method="post" action="/action/all/start" onsubmit="return confirm('تمام تونل‌های ثبت‌شده، حتی موارد متوقف‌شده، اجرا شوند؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">▶ اجرای همه</button></form><form method="post" action="/action/all/stop" onsubmit="return confirm('تمام تونل‌ها متوقف شوند؟ اتصال کاربران همه تونل‌ها قطع خواهد شد.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">■ توقف همه</button></form><form method="post" action="/action/all/restart" onsubmit="return confirm('تمام تونل‌های فعال ری‌استارت شوند؟ اتصال کاربران این تونل‌ها موقتاً قطع می‌شود.')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">↻ ری‌استارت همه فعال‌ها</button></form></div>{% endif %}{% if tunnels %}<div class="tablewrap"><table><thead><tr><th>دامنه</th><th>DNSها</th><th>پورت محلی</th><th>سلامت</th><th>حجم ترافیک</th><th>ویرایش DNS</th><th>احراز هویت SOCKS5</th><th>عملیات</th></tr></thead><tbody>{% for t in tunnels %}<tr data-tunnel-id="{{t.id}}"><td><b class="domain">{{t.domain}}</b><div class="small">{{t.service}}</div><div class="small">تعداد خطا: <span id="fails-{{t.id}}">{{t.failure_count or 0}}</span></div></td><td style="white-space:pre-line;direction:ltr;text-align:left">{{t.resolver}}</td><td style="direction:ltr">127.0.0.1:{{t.port}}</td><td><span id="health-{{t.id}}" class="pill health-badge {{'up' if t.health_state=='connected' else ('wait' if t.health_state=='recovering' else 'down')}}">{{'● متصل' if t.health_state=='connected' else ('● در انتظار' if t.health_state in ['cooldown','recovering'] else ('● توقف دستی' if t.health_state=='manual' else '● قطع شده'))}}</span><span class="healthdetail" id="detail-{{t.id}}">{{t.health_text}}</span><span class="timer" id="timer-{{t.id}}"></span><span class="healthdetail" id="error-{{t.id}}">{{t.last_error or ''}}</span></td><td class="traffic"><div>دریافتی: <strong id="rx-{{t.id}}">—</strong></div><div>ارسالی: <strong id="tx-{{t.id}}">—</strong></div><div>مجموع: <strong id="total-{{t.id}}">—</strong></div><div class="speed" id="speed-{{t.id}}">سرعت: —</div><form class="trafficform" method="post" action="/traffic/reset/{{t.id}}" onsubmit="return confirm('آمار حجم این تونل صفر شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray" type="submit">ریست حجم</button></form></td><td><form class="dnsform" method="post" action="/dns/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><textarea name="resolvers" required>{{t.resolver}}</textarea><button class="gray">ذخیره DNSها</button></form></td><td><form class="dnsform" method="post" action="/auth/{{t.id}}"><input type="hidden" name="csrf" value="{{csrf}}"><label><input style="width:auto" type="checkbox" name="auth_enabled" value="1" {% if t.auth_enabled %}checked{% endif %}> فعال</label><input name="auth_username" placeholder="نام کاربری" value="{{t.auth_username}}" autocomplete="off"><input name="auth_password" type="password" placeholder="{% if t.auth_password %}برای تغییر رمز وارد کنید{% else %}رمز عبور{% endif %}" autocomplete="new-password"><button class="gray">ذخیره و ری‌استارت</button></form></td><td><div class="actions">{% if t.enabled %}<form method="post" action="/action/{{t.id}}/stop"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">توقف دستی</button></form>{% else %}<form method="post" action="/action/{{t.id}}/start"><input type="hidden" name="csrf" value="{{csrf}}"><button class="green">شروع</button></form>{% endif %}<form method="post" action="/action/{{t.id}}/restart"><input type="hidden" name="csrf" value="{{csrf}}"><button class="gray">ری‌استارت</button></form><a class="btn" href="/logs/{{t.id}}">لاگ</a><form method="post" action="/action/{{t.id}}/delete" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="csrf" value="{{csrf}}"><button class="danger">حذف</button></form></div></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">هنوز دامنه‌ای ثبت نشده است.</p>{% endif %}</div>
 <div class="card"><h3>منطق پایش سلامت</h3><div class="hint">هر ۱ ثانیه لاگ اختصاصی هر سرویس بررسی می‌شود. پیام «connection closed» یا «client error» یک مهلت بازیابی ۳۰ ثانیه‌ای ایجاد می‌کند؛ اگر در این مدت «connection ready» دیده شود، خطا رفع‌شده تلقی می‌شود. در غیر این صورت، یا در صورت خروج پردازش/خطای «address already in use»، همان تونل متوقف و پس از ۵ دقیقه دوباره اجرا می‌شود. این منطق مطابق اسکریپت مدیریت ارسالی شماست و به پاسخ SOCKS5 وابسته نیست.</div></div>
 <script>
 function clock(s){s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
@@ -251,9 +251,9 @@ html[lang="en"] .timer{direction:ltr}
 
 def db():
     os.makedirs(APP,exist_ok=True); c=sqlite3.connect(DB,timeout=10); c.row_factory=sqlite3.Row
-    c.execute("CREATE TABLE IF NOT EXISTS tunnels(id INTEGER PRIMARY KEY,domain TEXT UNIQUE,resolver TEXT,port INTEGER UNIQUE,cert TEXT DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,health_state TEXT NOT NULL DEFAULT 'recovering',retry_at REAL,last_started REAL,last_check REAL,last_error TEXT DEFAULT '',failure_count INTEGER NOT NULL DEFAULT 0,last_down REAL)")
+    c.execute("CREATE TABLE IF NOT EXISTS tunnels(id INTEGER PRIMARY KEY,domain TEXT UNIQUE,resolver TEXT,port INTEGER UNIQUE,cert TEXT DEFAULT '',enabled INTEGER NOT NULL DEFAULT 1,health_state TEXT NOT NULL DEFAULT 'recovering',retry_at REAL,last_started REAL,last_check REAL,last_error TEXT DEFAULT '',failure_count INTEGER NOT NULL DEFAULT 0,last_down REAL,auth_enabled INTEGER NOT NULL DEFAULT 0,auth_username TEXT DEFAULT '',auth_password TEXT DEFAULT '')")
     cols={r['name'] for r in c.execute('PRAGMA table_info(tunnels)')}
-    for n,d in {'enabled':'INTEGER NOT NULL DEFAULT 1','health_state':"TEXT NOT NULL DEFAULT 'recovering'",'retry_at':'REAL','last_started':'REAL','last_check':'REAL','last_error':"TEXT DEFAULT ''",'failure_count':'INTEGER NOT NULL DEFAULT 0','last_down':'REAL'}.items():
+    for n,d in {'enabled':'INTEGER NOT NULL DEFAULT 1','health_state':"TEXT NOT NULL DEFAULT 'recovering'",'retry_at':'REAL','last_started':'REAL','last_check':'REAL','last_error':"TEXT DEFAULT ''",'failure_count':'INTEGER NOT NULL DEFAULT 0','last_down':'REAL','auth_enabled':'INTEGER NOT NULL DEFAULT 0','auth_username':"TEXT DEFAULT ''",'auth_password':"TEXT DEFAULT ''"}.items():
         if n not in cols:c.execute(f'ALTER TABLE tunnels ADD COLUMN {n} {d}')
     c.execute('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_port',?)",(str(LB_DEFAULT_PORT),))
@@ -400,7 +400,7 @@ def unit(i):return f'slipstream-client-{i}'
 def ctl(*a):return subprocess.run(['/usr/bin/systemctl',*a],capture_output=True,text=True,timeout=15)
 def active(i):return ctl('is-active','--quiet',unit(i)).returncode==0
 def update(i,**f):
-    allowed={'enabled','health_state','retry_at','last_started','last_check','last_error','failure_count','last_down','resolver'}
+    allowed={'enabled','health_state','retry_at','last_started','last_check','last_error','failure_count','last_down','resolver','auth_enabled','auth_username','auth_password'}
     if not set(f)<=allowed:raise ValueError('bad update')
     c=db();c.execute('UPDATE tunnels SET '+','.join(k+'=?' for k in f)+' WHERE id=?',(*f.values(),i));c.commit();c.close()
 def log_path(r):
@@ -427,22 +427,31 @@ def read_new_log_lines(r):
         return []
 
 def make_unit(r, reload_systemd=True):
+    # Keep Slipstream private; the companion SOCKS gateway owns the public port.
+    internal_port=int(r['port'])+20000
     args=[BIN,'--domain',r['domain']]
     for dns in parse_resolvers(r['resolver']):args += ['--resolver',dns]
-    args += ['--tcp-listen-host',LOCAL_HOST,'--tcp-listen-port',str(r['port'])]
+    args += ['--tcp-listen-host',LOCAL_HOST,'--tcp-listen-port',str(internal_port)]
     if r['cert']:args += ['--cert',r['cert']]
     os.makedirs(LOGDIR,exist_ok=True)
     try:
         u=pwd.getpwnam('slipstream'); os.chown(LOGDIR,u.pw_uid,u.pw_gid)
-    except KeyError:
-        raise RuntimeError('کاربر سیستم slipstream وجود ندارد؛ نصب پنل را بررسی کنید.')
-    os.chmod(LOGDIR,0o750)
-    lp=log_path(r)
+    except KeyError:raise RuntimeError('کاربر سیستم slipstream وجود ندارد؛ نصب پنل را بررسی کنید.')
+    os.chmod(LOGDIR,0o750);lp=log_path(r)
     with open(lp,'a',encoding='utf-8'):pass
     os.chown(lp,u.pw_uid,u.pw_gid);os.chmod(lp,0o640)
-    lines=['[Unit]',f'Description=Slipstream client {r["domain"]}','After=network-online.target','Wants=network-online.target','','[Service]','Type=simple','User=slipstream','Group=slipstream','ExecStart='+' '.join(shlex.quote(x) for x in args),'Restart=no','IPAccounting=yes',f'StandardOutput=append:{lp}','StandardError=inherit','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={LOGDIR}','','[Install]','WantedBy=multi-user.target','']
+    auth_unit=f'slipstream-auth-{r["id"]}'
+    lines=['[Unit]',f'Description=Slipstream client {r["domain"]}','After=network-online.target','Wants=network-online.target',f'Wants={auth_unit}.service','','[Service]','Type=simple','User=slipstream','Group=slipstream','ExecStart='+' '.join(shlex.quote(x) for x in args),'Restart=no','IPAccounting=yes',f'StandardOutput=append:{lp}','StandardError=inherit','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={LOGDIR}','','[Install]','WantedBy=multi-user.target','']
     with open(f'/etc/systemd/system/{unit(r["id"])}.service','w') as f:f.write('\n'.join(lines))
     os.chmod(f'/etc/systemd/system/{unit(r["id"])}.service',0o644)
+    cfgdir='/etc/slipstream-panel/tunnels';os.makedirs(cfgdir,mode=0o700,exist_ok=True);os.chmod(cfgdir,0o700)
+    cfg=os.path.join(cfgdir,str(r['id'])+'.json')
+    with open(cfg,'w',encoding='utf-8') as f:
+        json.dump({'listen_host':LOCAL_HOST,'listen_port':int(r['port']),'upstream_host':LOCAL_HOST,'upstream_port':internal_port,'auth_enabled':bool(r['auth_enabled']),'username':r['auth_username'] or '','password':r['auth_password'] or ''},f)
+    os.chmod(cfg,0o600)
+    gateway=['[Unit]',f'Description=SOCKS5 authentication gateway for {r["domain"]}',f'Requires={unit(r["id"])}.service',f'After={unit(r["id"])}.service',f'PartOf={unit(r["id"])}.service','','[Service]','Type=simple',f'ExecStart=/usr/bin/python3 /opt/slipstream-panel/socks5-gateway.py {cfg}','Restart=always','RestartSec=2','NoNewPrivileges=true','PrivateTmp=true','ProtectSystem=strict','ProtectHome=true',f'ReadWritePaths={cfgdir}','','[Install]','WantedBy=multi-user.target','']
+    with open(f'/etc/systemd/system/{auth_unit}.service','w') as f:f.write('\n'.join(gateway))
+    os.chmod(f'/etc/systemd/system/{auth_unit}.service',0o644)
     if reload_systemd:ctl('daemon-reload')
 
 def start(r):
@@ -632,7 +641,7 @@ DNS_SCAN_HTML=r'''<!doctype html><html lang="fa" dir="rtl"><head><meta charset="
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(145deg,#080f1e,#101b30);color:var(--txt);font:15px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}.wrap{max-width:1200px;margin:0 auto;padding:28px 18px}.top,.actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.brand{font-size:25px;font-weight:850}.muted,.hint{color:var(--muted);font-size:13px}.card{background:#111d31;border:1px solid #263b59;border-radius:16px;padding:22px;margin:18px 0}h3{margin:0 0 15px}label{display:block;color:#b4c4da;font-size:13px;margin:10px 0 6px}textarea,input{width:100%;background:#091426;color:var(--txt);border:1px solid #2b4263;border-radius:10px;padding:12px;font:inherit}textarea{min-height:180px;direction:ltr;text-align:left;font-family:ui-monospace,Consolas,monospace}input{min-height:44px}button,.btn{border:0;border-radius:10px;padding:10px 15px;background:#3475dc;color:#fff;font-weight:750;cursor:pointer;text-decoration:none;display:inline-block}button.gray,.btn.gray{background:#263b58}button.danger{background:#713447}button:disabled{opacity:.5;cursor:not-allowed}.hint{background:#091426;padding:12px;border-radius:10px;margin-top:12px;line-height:1.9}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:#0c1729;padding:14px;border-radius:12px;color:var(--muted)}.num{display:block;color:#fff;font-size:25px;font-weight:850}.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:650px}td,th{text-align:right;padding:11px;border-bottom:1px solid #263b59;font-size:13px}th{color:#9fb3cf}.ok{color:#70e5b5}.bad{color:#ff9cab}.dns{direction:ltr;text-align:left;font-family:monospace}.progress{height:9px;background:#091426;border-radius:20px;overflow:hidden;margin:12px 0}.bar{height:100%;width:0;background:linear-gradient(90deg,#438cff,#25c58b);transition:width .2s}.hidden{display:none}.section-title{display:flex;align-items:center;gap:8px;margin:20px 0 8px}.tag{font-size:11px;border:1px solid #2b4263;border-radius:20px;padding:2px 8px;color:#b4c4da}.small{font-size:12px;color:var(--muted)}.pick{width:18px;height:18px;min-height:0;accent-color:#438cff;cursor:pointer}.lat-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}@media(max-width:900px){.stats{grid-template-columns:repeat(3,1fr)}}@media(max-width:650px){.wrap{padding:16px 10px}.card{padding:15px}.stats{grid-template-columns:repeat(2,1fr)}.num{font-size:20px}}
 </style></head><body><div class="wrap"><div class="top"><div><div class="brand">🔎 اسکن DNS برای Slipstream</div><div class="muted">دو مرحله: Ping اطلاع‌رسانی DNSها و تست کامل SOCKS5 احراز هویت‌شده از طریق Slipstream تا Google</div></div><a class="btn gray" href="/">بازگشت به پنل</a></div>
 <div class="card"><h3>تنظیم اسکن</h3><form id="scanForm"><input type="hidden" id="csrf" value="{{csrf}}"><div class="formgrid"><div><label>دامنه Slipstream</label><input id="domain" placeholder="t.example.com" required></div><div><label>پورت DNS (برای همه IPها)</label><input id="dnsPort" type="number" min="1" max="65535" value="53" required></div><div><label>تعداد اسکن هم‌زمان (Worker)</label><input id="workers" type="number" min="1" max="32" value="{{default_workers}}" required><div class="small">هسته‌های CPU سرور: {{cpu_count}} · مقدار پیشنهادی اولیه بر اساس CPU</div></div><div><label>مهلت تست هر DNS (ثانیه)</label><input id="timeout" type="number" min="5" max="60" value="12"></div></div>
-<label>فهرست IPهای DNS (هر خط فقط یک IP؛ محدودیت قبلی ۳۲ مورد حذف شده)</label><textarea id="resolvers" placeholder="1.1.1.1&#10;8.8.8.8&#10;9.9.9.9" required>{{global_resolvers}}</textarea><div class="formgrid"><div><label>نام کاربری SOCKS5 (برای اتصال اصلی)</label><input id="socksUser" autocomplete="off" placeholder="نام کاربری" required></div><div><label>رمز عبور SOCKS5 (برای اتصال اصلی)</label><input id="socksPass" type="password" autocomplete="new-password" placeholder="رمز عبور" required></div><div><label>مسیر گواهی PEM (اختیاری)</label><input id="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label>دامنه مقصد تست</label><input value="www.google.com:443 / HTTPS generate_204" readonly></div></div><div class="actions" style="justify-content:flex-start;margin-top:14px"><button type="submit" id="startBtn">شروع اسکن دومرحله‌ای</button><button type="button" class="danger hidden" id="stopBtn">توقف اسکن</button></div></form><div class="hint"><b>مرحله ۱:</b> یک‌بار Ping از تمام IPهای DNS گرفته می‌شود. <b>مرحله ۲:</b> فقط IPهایی که در مرحله اول Ping موفق داشته‌اند وارد تست کامل مرحله دوم می‌شوند؛ برای هرکدام یک Slipstream موقت اجرا می‌شود و پس از آماده‌شدن تونل، اسکنر مستقیماً به Listener محلی وصل می‌شود، روش Username/Password را در دست‌دهی SOCKS5 مذاکره می‌کند و همان نام کاربری و رمز را از داخل تونل برای SOCKS5 سمت سرور می‌فرستد؛ سپس درخواست HTTPS به <b>www.google.com:443</b> را عبور می‌دهد. پاسخ TLS معتبر و HTTP 204 از <b>/generate_204</b> لازم است تا DNS سالم اعلام شود. نتیجه Ping تعیین می‌کند کدام IP به مرحله دوم راه پیدا کند؛ IPهایی که Ping ناموفق دارند، در مرحله دوم کاملاً رد می‌شوند و هیچ تست Slipstream یا HTTPS روی آن‌ها اجرا نمی‌شود. اعتبارنامه‌ها ذخیره نمی‌شوند و فقط در حافظه همان اسکن استفاده می‌شوند. Latency زمان کامل تا پاسخ Google است. تعداد Workerها سقف کارهای هم‌زمان هر مرحله است. تونل‌های اصلی ری‌استارت یا تغییر نمی‌کنند.</div></div>
+<label>فهرست IPهای DNS (هر خط فقط یک IP؛ محدودیت قبلی ۳۲ مورد حذف شده)</label><textarea id="resolvers" placeholder="1.1.1.1&#10;8.8.8.8&#10;9.9.9.9" required>{{global_resolvers}}</textarea><div class="formgrid"><div><label><input class="pick" type="checkbox" id="scanAuth" checked> تست با احراز هویت SOCKS5</label><input id="socksUser" autocomplete="off" placeholder="نام کاربری"></div><div><label>رمز عبور SOCKS5</label><input id="socksPass" type="password" autocomplete="new-password" placeholder="رمز عبور"></div><div><label>مسیر گواهی PEM (اختیاری)</label><input id="cert" placeholder="/etc/slipstream/cert.pem"></div><div><label>دامنه مقصد تست</label><input value="www.google.com:443 / HTTPS generate_204" readonly></div></div><div class="actions" style="justify-content:flex-start;margin-top:14px"><button type="submit" id="startBtn">شروع اسکن دومرحله‌ای</button><button type="button" class="danger hidden" id="stopBtn">توقف اسکن</button></div></form><div class="hint"><b>مرحله ۱:</b> یک‌بار Ping از تمام IPهای DNS گرفته می‌شود. <b>مرحله ۲:</b> فقط IPهایی که در مرحله اول Ping موفق داشته‌اند وارد تست کامل مرحله دوم می‌شوند؛ برای هرکدام یک Slipstream موقت اجرا می‌شود و پس از آماده‌شدن تونل، اسکنر مستقیماً به Listener محلی وصل می‌شود، روش Username/Password را در دست‌دهی SOCKS5 مذاکره می‌کند و همان نام کاربری و رمز را از داخل تونل برای SOCKS5 سمت سرور می‌فرستد؛ سپس درخواست HTTPS به <b>www.google.com:443</b> را عبور می‌دهد. پاسخ TLS معتبر و HTTP 204 از <b>/generate_204</b> لازم است تا DNS سالم اعلام شود. نتیجه Ping تعیین می‌کند کدام IP به مرحله دوم راه پیدا کند؛ IPهایی که Ping ناموفق دارند، در مرحله دوم کاملاً رد می‌شوند و هیچ تست Slipstream یا HTTPS روی آن‌ها اجرا نمی‌شود. اعتبارنامه‌ها ذخیره نمی‌شوند و فقط در حافظه همان اسکن استفاده می‌شوند. Latency زمان کامل تا پاسخ Google است. تعداد Workerها سقف کارهای هم‌زمان هر مرحله است. تونل‌های اصلی ری‌استارت یا تغییر نمی‌کنند.</div></div>
 <div class="card"><h3>پیشرفت اسکن</h3><div class="stats"><div class="stat">Ping موفق<span class="num ok" id="pingGood">0</span></div><div class="stat">Ping ناموفق<span class="num bad" id="pingBad">0</span></div><div class="stat">Google HTTPS موفق<span class="num ok" id="latGood">0</span></div><div class="stat">Google HTTPS ناموفق<span class="num bad" id="latBad">0</span></div></div><div class="progress"><div class="bar" id="bar"></div></div><div class="muted" id="state">هنوز اسکن شروع نشده است.</div>
 <div class="section-title"><h3>مرحله اول: Ping DNS</h3><span class="tag" id="pingProgress">0 / 0</span></div><div class="tablewrap"><table><thead><tr><th>DNS</th><th>نتیجه</th><th>زمان</th><th>جزئیات</th></tr></thead><tbody id="pingRows"><tr><td colspan="4" class="muted">هنوز بررسی نشده است.</td></tr></tbody></table></div>
 <div class="section-title"><h3>مرحله دوم: تست کامل تونل و HTTPS گوگل با احراز هویت SOCKS5</h3><span class="tag" id="latProgress">0 / 0</span></div><div class="lat-tools"><button type="button" class="gray" id="sortLatencyBtn">مرتب‌سازی Latency: کم به زیاد</button><button type="button" class="gray" id="copySelectedBtn">کپی DNSهای انتخاب‌شده (۰)</button><span class="small">نتایج موفق به‌صورت پیش‌فرض بر اساس کمترین Latency نمایش داده می‌شوند؛ برای انتخاب، تیک کنار DNS را بزن.</span></div><div class="tablewrap"><table><thead><tr><th>انتخاب</th><th>DNS</th><th>اتصال HTTPS گوگل</th><th>Latency</th><th>جزئیات</th></tr></thead><tbody id="latRows"><tr><td colspan="5" class="muted">در مرحله دوم فقط DNSهایی آزمایش می‌شوند که در مرحله اول پاسخ Ping داده‌اند.</td></tr></tbody></table></div>
@@ -644,7 +653,7 @@ function rowsHtml(items,stage){if(!items.length)return `<tr><td colspan="${stage
 function updateSelectedCount(){$('copySelectedBtn').textContent=`کپی DNSهای انتخاب‌شده (${selectedResolvers.size})`}
 function render(d){const p=d.ping_results||[],l=d.latency_results||[];$('pingGood').textContent=p.filter(x=>x.ok).length;$('pingBad').textContent=p.filter(x=>!x.ok).length;$('latGood').textContent=l.filter(x=>x.ok).length;$('latBad').textContent=l.filter(x=>!x.ok).length;$('pingRows').innerHTML=rowsHtml(p,'ping');$('latRows').innerHTML=rowsHtml(l,'latency');updateSelectedCount();$('pingProgress').textContent=(d.ping_done||0)+' / '+(d.ping_total||0);$('latProgress').textContent=(d.latency_done||0)+' / '+(d.latency_total||0);let pct=d.phase==='ping'?((d.ping_total||0)?(d.ping_done||0)/d.ping_total*50:0):d.phase==='latency'?(50+((d.latency_total||0)?(d.latency_done||0)/d.latency_total*50:0)):(d.phase==='done'?100:0);$('bar').style.width=Math.round(pct)+'%';let phase=d.phase==='ping'?'مرحله اول: Ping DNSها':d.phase==='latency'?'مرحله دوم: تست کامل تونل و HTTPS گوگل':d.phase==='done'?(d.cancelled?'اسکن متوقف شد.':'اسکن دومرحله‌ای به پایان رسید.'):'هنوز اسکن شروع نشده است.';$('state').textContent=d.running?`${phase} · دامنه: ${d.domain} · Worker: ${d.workers}`:phase;$('healthyList').value=l.filter(x=>x.ok).map(x=>x.resolver).join('\n');$('startBtn').disabled=!!d.running;$('stopBtn').classList.toggle('hidden',!d.running)}
 async function poll(){try{let r=await fetch('/api/dns-scan/status',{cache:'no-store'});if(!r.ok)return;let d=await r.json();render(d);if(!d.running&&timer){clearInterval(timer);timer=null}}catch(e){}}
-$('scanForm').addEventListener('submit',async e=>{e.preventDefault();selectedResolvers.clear();updateSelectedCount();let fd=new FormData();for(const [k,id] of Object.entries({csrf:'csrf',domain:'domain',dns_port:'dnsPort',workers:'workers',resolvers:'resolvers',cert:'cert',timeout:'timeout',socks_user:'socksUser',socks_pass:'socksPass'}))fd.append(k,$(id).value);$('startBtn').disabled=true;try{let r=await fetch('/api/dns-scan/start',{method:'POST',body:fd});let d=await r.json();if(!r.ok){alert(d.error||'شروع اسکن ناموفق بود');$('startBtn').disabled=false;return}render(d);if(timer)clearInterval(timer);timer=setInterval(poll,800)}catch(e){alert('خطا در ارتباط با پنل');$('startBtn').disabled=false}});
+$('scanForm').addEventListener('submit',async e=>{e.preventDefault();selectedResolvers.clear();updateSelectedCount();let fd=new FormData();for(const [k,id] of Object.entries({csrf:'csrf',domain:'domain',dns_port:'dnsPort',workers:'workers',resolvers:'resolvers',cert:'cert',timeout:'timeout',socks_user:'socksUser',socks_pass:'socksPass'}))fd.append(k,$(id).value);fd.append('auth_enabled',$('scanAuth').checked?'1':'0');$('startBtn').disabled=true;try{let r=await fetch('/api/dns-scan/start',{method:'POST',body:fd});let d=await r.json();if(!r.ok){alert(d.error||'شروع اسکن ناموفق بود');$('startBtn').disabled=false;return}render(d);if(timer)clearInterval(timer);timer=setInterval(poll,800)}catch(e){alert('خطا در ارتباط با پنل');$('startBtn').disabled=false}});
 $('stopBtn').addEventListener('click',async()=>{let fd=new FormData();fd.append('csrf',$('csrf').value);await fetch('/api/dns-scan/stop',{method:'POST',body:fd});poll()});$('latRows').addEventListener('change',e=>{if(!e.target.classList.contains('resolver-pick'))return;const ip=e.target.dataset.resolver;if(e.target.checked)selectedResolvers.add(ip);else selectedResolvers.delete(ip);updateSelectedCount()});$('sortLatencyBtn').addEventListener('click',()=>{latencyAscending=!latencyAscending;$('sortLatencyBtn').textContent=`مرتب‌سازی Latency: ${latencyAscending?'کم به زیاد':'زیاد به کم'}`;if(window.lastScan)render(window.lastScan)});async function copyText(v){try{await navigator.clipboard.writeText(v)}catch(e){let t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}}$('copyBtn').addEventListener('click',()=>copyText($('healthyList').value));$('copySelectedBtn').addEventListener('click',()=>{const values=[...selectedResolvers];if(!values.length){alert('ابتدا حداقل یک DNS را انتخاب کن.');return}copyText(values.join('\n'))});$('copyPingBtn').addEventListener('click',()=>copyText((window.lastPing||[]).filter(x=>x.ok).map(x=>x.resolver).join('\n')));const oldRender=render;render=function(d){window.lastPing=d.ping_results||[];window.lastScan=d;oldRender(d)};poll();
 </script><style>
 #languageSwitch{position:fixed;z-index:99999;top:14px;right:16px;border:1px solid #49658a;border-radius:10px;padding:8px 13px;background:#172b46;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 5px 18px #0005}
@@ -755,7 +764,7 @@ def _socks5_reply(sock):
     else:raise ValueError('نوع آدرس SOCKS نامعتبر است')
     return head+tail
 
-def _dns_scan_latency(target_domain,upstream_port,username,password,timeout_sec):
+def _dns_scan_latency(target_domain,upstream_port,username,password,timeout_sec,auth_enabled=True):
     """Send a real RFC1929 SOCKS5 handshake through the Slipstream TCP tunnel.
 
     The username/password are deliberately NOT checked by a local gateway:
@@ -767,21 +776,21 @@ def _dns_scan_latency(target_domain,upstream_port,username,password,timeout_sec)
         raw.settimeout(timeout_sec)
         # Negotiate username/password directly with the SOCKS5 peer through
         # Slipstream. Do not terminate or strip the authentication locally.
-        raw.sendall(b'\x05\x01\x02')
+        raw.sendall(b'\x05\x01'+(b'\x02' if auth_enabled else b'\x00'))
         method=_recv_exact(raw,2)
-        if method!=b'\x05\x02':
+        expected=b'\x02' if auth_enabled else b'\x00'
+        if method!=b'\x05'+expected:
             if method==b'\x05\xff':
                 raise PermissionError('سرور SOCKS5 روش احراز هویت را نپذیرفت')
             if method==b'\x05\x00':
                 raise PermissionError('سرور SOCKS5 احراز هویت Username/Password را درخواست نکرد؛ پاسخ no-auth دریافت شد')
             raise ConnectionError(f'پاسخ نامعتبر در مذاکره SOCKS5: {method.hex()}')
-        ub=username.encode('utf-8');pb=password.encode('utf-8')
-        if not 1<=len(ub)<=255 or not 1<=len(pb)<=255:
-            raise ValueError('طول نام کاربری و رمز SOCKS5 باید بین ۱ تا ۲۵۵ بایت باشد')
-        raw.sendall(b'\x01'+bytes([len(ub)])+ub+bytes([len(pb)])+pb)
-        auth_reply=_recv_exact(raw,2)
-        if auth_reply!=b'\x01\x00':
-            raise PermissionError('احراز هویت SOCKS5 در سمت سرور ناموفق بود')
+        if auth_enabled:
+            ub=username.encode('utf-8');pb=password.encode('utf-8')
+            if not 1<=len(ub)<=255 or not 1<=len(pb)<=255:raise ValueError('طول نام کاربری و رمز SOCKS5 باید بین ۱ تا ۲۵۵ بایت باشد')
+            raw.sendall(b'\x01'+bytes([len(ub)])+ub+bytes([len(pb)])+pb)
+            auth_reply=_recv_exact(raw,2)
+            if auth_reply!=b'\x01\x00':raise PermissionError('احراز هویت SOCKS5 در سمت سرور ناموفق بود')
         host=target_domain.encode('idna')
         if not 1<=len(host)<=255:raise ValueError('دامنه مقصد معتبر نیست')
         raw.sendall(b'\x05\x01\x00\x03'+bytes([len(host)])+host+(443).to_bytes(2,'big'))
@@ -832,7 +841,7 @@ def _run_parallel(items,workers,fn,append_key,done_key):
                 DNS_SCAN_STATE[append_key].append({'resolver':item,'ok':ok,'detail':detail,'elapsed':f'{elapsed:.1f}ms' if append_key=='latency_results' else f'{elapsed:.2f}s'})
                 DNS_SCAN_STATE[done_key]+=1
 
-def _dns_scan_worker(domain,resolvers,cert,timeout_sec,workers,username,password):
+def _dns_scan_worker(domain,resolvers,cert,timeout_sec,workers,username,password,auth_enabled):
     try:
         with DNS_SCAN_LOCK:DNS_SCAN_STATE['phase']='ping'
         _run_parallel(resolvers,workers,lambda r:_dns_scan_ping(r,2),'ping_results','ping_done')
@@ -847,14 +856,14 @@ def _dns_scan_worker(domain,resolvers,cert,timeout_sec,workers,username,password
             # Each candidate gets one temporary Slipstream client and one
             # end-to-end authenticated SOCKS5 -> Google HTTPS test.
             def full_latency(resolver):
-                return _dns_scan_probe_and_latency(domain,resolver,cert,timeout_sec,username,password)
+                return _dns_scan_probe_and_latency(domain,resolver,cert,timeout_sec,username,password,auth_enabled)
             _run_parallel(candidates,workers,full_latency,'latency_results','latency_done')
     except Exception as e:
         with DNS_SCAN_LOCK:DNS_SCAN_STATE['latency_results'].append({'resolver':'—','ok':False,'detail':'خطای اسکن: '+str(e),'elapsed':'—'})
     finally:
         with DNS_SCAN_LOCK:DNS_SCAN_STATE['running']=False;DNS_SCAN_STATE['phase']='done'
 
-def _dns_scan_probe_and_latency(domain,resolver,cert,timeout_sec,username,password):
+def _dns_scan_probe_and_latency(domain,resolver,cert,timeout_sec,username,password,auth_enabled):
     with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as sock:sock.bind((LOCAL_HOST,0));local_port=sock.getsockname()[1]
     args=[BIN,'--domain',domain,'--resolver',resolver,'--tcp-listen-host',LOCAL_HOST,'--tcp-listen-port',str(local_port)]
     if cert:args+=['--cert',cert]
@@ -877,7 +886,7 @@ def _dns_scan_probe_and_latency(domain,resolver,cert,timeout_sec,username,passwo
                     if 'connection ready' in output.lower():ready=True;break
             if ready:break
         if not ready:return False,'Slipstream در مهلت مقرر آماده نشد: '+' '.join(output.split())[-160:],(time.monotonic()-started)*1000
-        ok,detail,latency=_dns_scan_latency(DNS_SCAN_TEST_HOST,local_port,username,password,timeout_sec)
+        ok,detail,latency=_dns_scan_latency(DNS_SCAN_TEST_HOST,local_port,username,password,timeout_sec,auth_enabled)
         return ok,detail,latency
     except Exception as e:return False,f'{type(e).__name__}: {e}',(time.monotonic()-started)*1000
     finally:
@@ -902,12 +911,12 @@ def dns_scan_page():
 @require_login
 def dns_scan_start():
     check_csrf();domain=request.form.get('domain','').strip().lower().rstrip('.');cert=request.form.get('cert','').strip()
-    username=request.form.get('socks_user','');password=request.form.get('socks_pass','')
+    username=request.form.get('socks_user','');password=request.form.get('socks_pass','');auth_enabled=request.form.get('auth_enabled')=='1'
     try:
         dns_port=int(request.form.get('dns_port','53'));resolvers=parse_scan_resolvers(request.form.get('resolvers',''),dns_port)
         timeout_sec=int(request.form.get('timeout','12'));workers=int(request.form.get('workers','1'))
     except (ValueError,TypeError) as e:return jsonify(error=str(e) or 'تنظیمات اسکن نامعتبر است.'),400
-    if not username or not password or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:return jsonify(error='نام کاربری و رمز SOCKS5 الزامی است و هرکدام حداکثر ۲۵۵ بایت باشند.'),400
+    if auth_enabled and (not username or not password or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255):return jsonify(error='با فعال بودن احراز هویت، نام کاربری و رمز SOCKS5 الزامی و حداکثر ۲۵۵ بایت هستند.'),400
     if not valid_domain(domain):return jsonify(error='دامنه معتبر نیست.'),400
     if not 5<=timeout_sec<=60:return jsonify(error='مهلت تست باید بین ۵ تا ۶۰ ثانیه باشد.'),400
     if not 1<=workers<=32:return jsonify(error='تعداد Worker باید بین ۱ تا ۳۲ باشد.'),400
@@ -916,7 +925,7 @@ def dns_scan_start():
     with DNS_SCAN_LOCK:
         if DNS_SCAN_STATE['running']:return jsonify(error='یک اسکن دیگر در حال اجراست.'),409
         DNS_SCAN_STATE.update({'running':True,'cancel':False,'domain':domain,'phase':'ping','workers':workers,'ping_total':len(resolvers),'ping_done':0,'latency_total':0,'latency_done':0,'ping_results':[],'latency_results':[],'started_at':time.time()})
-    threading.Thread(target=_dns_scan_worker,args=(domain,resolvers,cert,timeout_sec,workers,username,password),daemon=True,name='dns-resolver-scan').start()
+    threading.Thread(target=_dns_scan_worker,args=(domain,resolvers,cert,timeout_sec,workers,username,password,auth_enabled),daemon=True,name='dns-resolver-scan').start()
     return jsonify(_dns_scan_snapshot())
 
 @app.route('/api/dns-scan/status')
@@ -1059,6 +1068,8 @@ def logout():session.clear();return redirect('/login')
 @require_login
 def add():
     check_csrf();domain=request.form.get('domain','').strip().lower().rstrip('.');cert=request.form.get('cert','').strip();p=request.form.get('port','').strip()
+    auth_enabled=request.form.get('auth_enabled')=='1';auth_username=request.form.get('auth_username','').strip();auth_password=request.form.get('auth_password','')
+    if auth_enabled and (not auth_username or not auth_password or len(auth_username.encode('utf-8'))>255 or len(auth_password.encode('utf-8'))>255):flash('برای احراز هویت فعال، نام کاربری و رمز عبور معتبر (حداکثر ۲۵۵ بایت) وارد کنید.');return redirect('/')
     try:dns=parse_resolvers(request.form.get('resolvers','') or get_setting('global_resolvers','1.1.1.1:53'))
     except ValueError as e:flash(str(e));return redirect('/')
     if not valid_domain(domain):flash('دامنه معتبر نیست.');return redirect('/')
@@ -1073,7 +1084,7 @@ def add():
     else:
         port=next((x for x in range(PMIN,PMAX+1) if x not in used),None)
         if port is None:c.close();flash('پورت آزاد موجود نیست.');return redirect('/')
-    cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started) VALUES(?,?,?,?,1,?,?)',(domain,'\n'.join(dns),port,cert,'recovering',time.time()))
+    cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started,auth_enabled,auth_username,auth_password) VALUES(?,?,?,?,1,?,?,?, ?, ?)',(domain,'\n'.join(dns),port,cert,'recovering',time.time(),1 if auth_enabled else 0,auth_username,auth_password))
     c.commit();i=cur.lastrowid;r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
     try:
         make_unit(r);reset_log_cursor(r);z=ctl('enable','--now',unit(i))
@@ -1110,6 +1121,10 @@ def add_bulk():
     cert=request.form.get('cert','').strip()
     if cert and (not cert.startswith('/') or not os.path.isfile(cert)):
         flash('فایل گواهی معتبر نیست.')
+        return redirect('/')
+    auth_enabled=request.form.get('auth_enabled')=='1';auth_username=request.form.get('auth_username','').strip();auth_password=request.form.get('auth_password','')
+    if auth_enabled and (not auth_username or not auth_password or len(auth_username.encode('utf-8'))>255 or len(auth_password.encode('utf-8'))>255):
+        flash('برای احراز هویت فعال، نام کاربری و رمز عبور معتبر (حداکثر ۲۵۵ بایت) وارد کنید.')
         return redirect('/')
     try:
         dns=parse_resolvers(request.form.get('resolvers','') or get_setting('global_resolvers','1.1.1.1:53'))
@@ -1154,7 +1169,7 @@ def add_bulk():
         now=time.time()
         for domain,port in zip(domains,ports):
             cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started) VALUES(?,?,?,?,1,?,?)',
-                          (domain,'\n'.join(dns),port,cert,'recovering',now))
+                          (domain,'\n'.join(dns),port,cert,'recovering',now,1 if auth_enabled else 0,auth_username,auth_password))
             created.append((cur.lastrowid,domain,port))
         c.commit()
     except Exception as e:
@@ -1189,6 +1204,28 @@ def add_bulk():
         if len(failed)>5:
             summary+=' | و '+str(len(failed)-5)+' مورد دیگر'
     flash(summary)
+    return redirect('/')
+
+@app.post('/auth/<int:i>')
+@require_login
+def auth_edit(i):
+    check_csrf()
+    c=db();r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
+    if not r:abort(404)
+    enabled=request.form.get('auth_enabled')=='1';username=request.form.get('auth_username','').strip();password=request.form.get('auth_password','')
+    if enabled:
+        username=username or r['auth_username'] or '';password=password or r['auth_password'] or ''
+        if not username or not password or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
+            flash('برای فعال‌سازی احراز هویت، نام کاربری و رمز عبور معتبر لازم است.');return redirect('/')
+    else:username='';password=''
+    update(i,auth_enabled=1 if enabled else 0,auth_username=username,auth_password=password)
+    c=db();r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
+    try:
+        make_unit(r)
+        if r['enabled']:
+            reset_log_cursor(r);ctl('restart',unit(i));update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
+        flash('تنظیمات احراز هویت ذخیره شد؛ تونل برای اعمال تغییرات ری‌استارت شد.')
+    except Exception as e:flash('خطا در اعمال تنظیمات احراز هویت: '+str(e))
     return redirect('/')
 
 @app.post('/dns/<int:i>')
@@ -1299,7 +1336,11 @@ def action(i,act):
     elif act=='stop':
         ctl('stop',unit(i));update(i,enabled=0,health_state='manual',retry_at=None,last_error='');flash('توقف دستی انجام شد.')
     elif act=='delete':
-        ctl('disable','--now',unit(i))
+        ctl('disable','--now',unit(i));ctl('disable','--now',f'slipstream-auth-{i}')
+        try:os.remove(f'/etc/systemd/system/slipstream-auth-{i}.service')
+        except FileNotFoundError:pass
+        try:os.remove(f'/etc/slipstream-panel/tunnels/{i}.json')
+        except FileNotFoundError:pass
         try:os.remove(f'/etc/systemd/system/{unit(i)}.service')
         except FileNotFoundError:pass
         ctl('daemon-reload');c=db();c.execute('DELETE FROM tunnels WHERE id=?',(i,));c.commit();c.close();flash('تونل حذف شد.')
