@@ -1211,8 +1211,8 @@ def logout():session.clear();return redirect('/login')
 @require_login
 def add():
     check_csrf();domain=request.form.get('domain','').strip().lower().rstrip('.');cert=request.form.get('cert','').strip();p=request.form.get('port','').strip()
-    auth_enabled=request.form.get('auth_enabled')=='1';auth_username=request.form.get('auth_username','').strip();auth_password=request.form.get('auth_password','')
-    if auth_enabled and (not auth_username or not auth_password or len(auth_username.encode('utf-8'))>255 or len(auth_password.encode('utf-8'))>255):flash('برای احراز هویت فعال، نام کاربری و رمز عبور معتبر (حداکثر ۲۵۵ بایت) وارد کنید.');return redirect('/')
+    upstream_username=request.form.get('upstream_username','').strip();upstream_password=request.form.get('upstream_password','')
+    if len(upstream_username.encode('utf-8'))>255 or len(upstream_password.encode('utf-8'))>255 or bool(upstream_username)!=bool(upstream_password):flash('نام کاربری و رمز SOCKS5 مقصد باید هر دو وارد شوند و حداکثر ۲۵۵ بایت باشند.');return redirect('/')
     try:dns=parse_resolvers(request.form.get('resolvers','') or get_setting('global_resolvers','1.1.1.1:53'))
     except ValueError as e:flash(str(e));return redirect('/')
     if not valid_domain(domain):flash('دامنه معتبر نیست.');return redirect('/')
@@ -1227,7 +1227,7 @@ def add():
     else:
         port=next((x for x in range(PMIN,PMAX+1) if x not in used),None)
         if port is None:c.close();flash('پورت آزاد موجود نیست.');return redirect('/')
-    cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started,auth_enabled,auth_username,auth_password) VALUES(?,?,?,?,1,?,?,?, ?, ?)',(domain,'\n'.join(dns),port,cert,'recovering',time.time(),1 if auth_enabled else 0,auth_username,auth_password))
+    cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started,upstream_username,upstream_password) VALUES(?,?,?,?,1,?,?,?,?)',(domain,'\n'.join(dns),port,cert,'recovering',time.time(),upstream_username,upstream_password))
     c.commit();i=cur.lastrowid;r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
     try:
         make_unit(r);reset_log_cursor(r);z=ctl('enable','--now',unit(i))
@@ -1265,9 +1265,9 @@ def add_bulk():
     if cert and (not cert.startswith('/') or not os.path.isfile(cert)):
         flash('فایل گواهی معتبر نیست.')
         return redirect('/')
-    auth_enabled=request.form.get('auth_enabled')=='1';auth_username=request.form.get('auth_username','').strip();auth_password=request.form.get('auth_password','')
-    if auth_enabled and (not auth_username or not auth_password or len(auth_username.encode('utf-8'))>255 or len(auth_password.encode('utf-8'))>255):
-        flash('برای احراز هویت فعال، نام کاربری و رمز عبور معتبر (حداکثر ۲۵۵ بایت) وارد کنید.')
+    upstream_username=request.form.get('upstream_username','').strip();upstream_password=request.form.get('upstream_password','')
+    if len(upstream_username.encode('utf-8'))>255 or len(upstream_password.encode('utf-8'))>255 or bool(upstream_username)!=bool(upstream_password):
+        flash('نام کاربری و رمز SOCKS5 مقصد باید هر دو وارد شوند و حداکثر ۲۵۵ بایت باشند.')
         return redirect('/')
     try:
         dns=parse_resolvers(request.form.get('resolvers','') or get_setting('global_resolvers','1.1.1.1:53'))
@@ -1311,8 +1311,8 @@ def add_bulk():
     try:
         now=time.time()
         for domain,port in zip(domains,ports):
-            cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started,auth_enabled,auth_username,auth_password) VALUES(?,?,?,?,1,?,?,?,?,?)',
-                          (domain,'\n'.join(dns),port,cert,'recovering',now,1 if auth_enabled else 0,auth_username,auth_password))
+            cur=c.execute('INSERT INTO tunnels(domain,resolver,port,cert,enabled,health_state,last_started,upstream_username,upstream_password) VALUES(?,?,?,?,1,?,?,?,?)',
+                          (domain,'\n'.join(dns),port,cert,'recovering',now,upstream_username,upstream_password))
             created.append((cur.lastrowid,domain,port))
         c.commit()
     except Exception as e:
@@ -1349,43 +1349,23 @@ def add_bulk():
     flash(summary)
     return redirect('/')
 
-@app.post('/auth/<int:i>')
+@app.post('/upstream-auth/<int:i>')
 @require_login
-def auth_edit(i):
+def upstream_auth_edit(i):
     check_csrf()
-    c=db();r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
+    c=db()
+    r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone()
+    c.close()
     if not r:abort(404)
-    enabled=request.form.get('auth_enabled')=='1';username=request.form.get('auth_username','').strip();password=request.form.get('auth_password','')
-    if enabled:
-        username=username or r['auth_username'] or '';password=password or r['auth_password'] or ''
-        if not username or not password or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
-            flash('برای فعال‌سازی احراز هویت، نام کاربری و رمز عبور معتبر لازم است.');return redirect('/')
-    else:username='';password=''
-    update(i,auth_enabled=1 if enabled else 0,auth_username=username,auth_password=password)
-    c=db();r=c.execute('SELECT * FROM tunnels WHERE id=?',(i,)).fetchone();c.close()
-    try:
-        auth_unit=f'slipstream-auth-{i}'
-        if not enabled:
-            # Stop the gateway immediately, before rewriting/reloading the
-            # tunnel unit, then ensure systemd no longer considers it active.
-            ctl('stop',auth_unit)
-            ctl('disable',auth_unit)
-        make_unit(r)
-        if r['enabled']:
-            reset_log_cursor(r)
-            z=ctl('restart',unit(i))
-            if z.returncode!=0:
-                raise RuntimeError((z.stderr or z.stdout).strip() or 'خطا در راه‌اندازی مجدد تونل')
-            update(i,health_state='recovering',retry_at=None,last_started=time.time(),last_error='')
-        if not enabled:
-            # A final stop after daemon-reload covers any stale Wants= edge
-            # retained by the previously loaded unit definition.
-            ctl('stop',auth_unit)
-            ctl('disable',auth_unit)
-            if ctl('is-active','--quiet',auth_unit).returncode==0:
-                raise RuntimeError('سرویس SOCKS5 Gateway هنوز فعال است.')
-        flash('تنظیمات احراز هویت ذخیره شد؛ مسیر SOCKS5 مطابق وضعیت تیک بازسازی شد.')
-    except Exception as e:flash('خطا در اعمال تنظیمات احراز هویت: '+str(e))
+    username=request.form.get('upstream_username','').strip()
+    password=request.form.get('upstream_password','')
+    username=username or (r['upstream_username'] or '')
+    password=password or (r['upstream_password'] or '')
+    if bool(username)!=bool(password) or len(username.encode('utf-8'))>255 or len(password.encode('utf-8'))>255:
+        flash('نام کاربری و رمز SOCKS5 مقصد باید هر دو معتبر و حداکثر ۲۵۵ بایت باشند.')
+        return redirect('/')
+    update(i,upstream_username=username,upstream_password=password)
+    flash('اعتبارنامه SOCKS5 مقصد این تونل ذخیره شد.')
     return redirect('/')
 
 @app.post('/dns/<int:i>')
