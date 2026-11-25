@@ -259,6 +259,7 @@ def db():
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_enabled','1')")
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_upstream_username','')")
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_upstream_password','')")
+    c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('lb_upstream_auth_disabled','0')")
     c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('global_resolvers','1.1.1.1:53')")
     c.execute('CREATE TABLE IF NOT EXISTS traffic_stats(tunnel_id INTEGER PRIMARY KEY, rx_total INTEGER NOT NULL DEFAULT 0, tx_total INTEGER NOT NULL DEFAULT 0, last_rx INTEGER NOT NULL DEFAULT 0, last_tx INTEGER NOT NULL DEFAULT 0, last_sample REAL, rx_rate REAL NOT NULL DEFAULT 0, tx_rate REAL NOT NULL DEFAULT 0)')
     c.commit();return c
@@ -365,19 +366,22 @@ class LBHandler(socketserver.BaseRequestHandler):
                 lb_send_failure(client,1)
                 return
 
-            # If this tunnel's credentials were explicitly cleared, offer only SOCKS5 no-auth.
-            # Otherwise allow no-auth or RFC1929, using tunnel credentials then LB defaults.
-            if backend['upstream_auth_disabled']:
+            # Explicitly cleared tunnel credentials disable auth for that tunnel.
+            # Otherwise a cleared LB default disables auth only when the tunnel has no own credentials.
+            tunnel_has_credentials=bool(backend['upstream_username'] and backend['upstream_password'])
+            lb_auth_disabled=get_setting('lb_upstream_auth_disabled','0')=='1'
+            force_no_auth=bool(backend['upstream_auth_disabled']) or (lb_auth_disabled and not tunnel_has_credentials)
+            if force_no_auth:
                 upstream.sendall(b'\x05\x01\x00')
             else:
                 upstream.sendall(b'\x05\x02\x00\x02')
             selected=lb_recv_exact(upstream,2)
-            if selected[0]!=5 or selected[1] not in ((0,) if backend['upstream_auth_disabled'] else (0,2)):
+            if selected[0]!=5 or selected[1] not in ((0,) if force_no_auth else (0,2)):
                 lb_send_failure(client,1)
                 return
             if selected[1]==2:
-                backend_username=backend['upstream_username'] or get_setting('lb_upstream_username','') or ''
-                backend_password=backend['upstream_password'] or get_setting('lb_upstream_password','') or ''
+                backend_username=(backend['upstream_username'] or '') if tunnel_has_credentials else (get_setting('lb_upstream_username','') or '')
+                backend_password=(backend['upstream_password'] or '') if tunnel_has_credentials else (get_setting('lb_upstream_password','') or '')
                 backend_user=backend_username.encode('utf-8')
                 backend_pass=backend_password.encode('utf-8')
                 if not (1<=len(backend_user)<=255 and 1<=len(backend_pass)<=255):
@@ -1127,7 +1131,7 @@ def lb_settings():
     if len(lb_username.encode('utf-8'))>255 or len(lb_password.encode('utf-8'))>255 or bool(lb_username)!=bool(lb_password):
         flash('نام کاربری و رمز SOCKS5 مقصد لودبالانسر باید هر دو وارد شوند و حداکثر ۲۵۵ بایت باشند.')
         return redirect('/')
-    set_settings(lb_port=port,lb_enabled='1' if request.form.get('lb_enabled')=='1' else '0',lb_upstream_username=lb_username,lb_upstream_password=lb_password)
+    set_settings(lb_port=port,lb_enabled='1' if request.form.get('lb_enabled')=='1' else '0',lb_upstream_username=lb_username,lb_upstream_password=lb_password,lb_upstream_auth_disabled='0')
     flash('تنظیمات لودبالانسر ذخیره شد.')
     return redirect('/')
 
@@ -1135,8 +1139,8 @@ def lb_settings():
 @require_login
 def lb_clear_upstream():
     check_csrf()
-    set_settings(lb_upstream_username='',lb_upstream_password='')
-    flash('نام کاربری و رمز SOCKS5 مقصد پیش‌فرض لودبالانسر کاملاً حذف شدند.')
+    set_settings(lb_upstream_username='',lb_upstream_password='',lb_upstream_auth_disabled='1')
+    flash('نام کاربری و رمز SOCKS5 مقصد پیش‌فرض لودبالانسر حذف و احراز هویت مقصد برای تونل‌های فاقد اعتبارنامه اختصاصی غیرفعال شد.')
     return redirect('/')
 
 @app.route('/api/status')
