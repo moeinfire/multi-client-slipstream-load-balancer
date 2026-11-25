@@ -318,32 +318,103 @@ def lb_client_allowed(address):
             continue
     return False
 
+def lb_recv_exact(sock, size):
+    data=bytearray()
+    while len(data)<size:
+        chunk=sock.recv(size-len(data))
+        if not chunk:
+            raise ConnectionError('SOCKS5 peer disconnected')
+        data.extend(chunk)
+    return bytes(data)
+
+def lb_send_failure(client, code=1):
+    try:
+        client.sendall(bytes((5,code,0,1,0,0,0,0,0,0)))
+    except OSError:
+        pass
+
 class LBHandler(socketserver.BaseRequestHandler):
     def handle(self):
+        client=self.request
+        upstream=None
         if not lb_client_allowed(self.client_address[0]):
             print(f'[load-balancer] rejected client outside allowlist: {self.client_address[0]}',flush=True)
             return
-        picked=choose_backend()
-        if not picked: return
-        _port, upstream=picked
-        client=self.request
         try:
-            client.settimeout(120); upstream.settimeout(120)
+            client.settimeout(30)
+            # The public load balancer always exposes No Authentication.
+            greeting=lb_recv_exact(client,2)
+            if greeting[0]!=5 or greeting[1]<1:
+                return
+            methods=lb_recv_exact(client,greeting[1])
+            if 0 not in methods:
+                client.sendall(b'\\x05\\xff')
+                return
+
+            picked=choose_backend()
+            if not picked:
+                client.sendall(b'\\x05\\xff')
+                return
+            port,upstream=picked
+            upstream.settimeout(30)
+
+            # Read this backend's saved credentials. The load balancer
+            # authenticates to its local gateway on behalf of the client.
+            c=db()
+            backend=c.execute('SELECT auth_enabled,auth_username,auth_password FROM tunnels WHERE port=?',(port,)).fetchone()
+            c.close()
+            if not backend:
+                lb_send_failure(client,1)
+                return
+
+            if backend['auth_enabled']:
+                upstream.sendall(b'\\x05\\x01\\x02')
+            else:
+                upstream.sendall(b'\\x05\\x01\\x00')
+            selected=lb_recv_exact(upstream,2)
+            if selected[0]!=5 or selected[1]==255:
+                lb_send_failure(client,1)
+                return
+
+            if selected[1]==2:
+                username=(backend['auth_username'] or '').encode('utf-8')
+                password=(backend['auth_password'] or '').encode('utf-8')
+                if not (1<=len(username)<=255 and 1<=len(password)<=255):
+                    lb_send_failure(client,1)
+                    return
+                upstream.sendall(b'\\x01'+bytes((len(username),))+username+bytes((len(password),))+password)
+                auth_reply=lb_recv_exact(upstream,2)
+                if auth_reply!=b'\\x01\\x00':
+                    lb_send_failure(client,2)
+                    return
+            elif selected[1]!=0:
+                lb_send_failure(client,1)
+                return
+
+            # The client sees a successful No-Auth negotiation, while the
+            # selected backend has already been authenticated internally.
+            client.sendall(b'\\x05\\x00')
+            client.settimeout(120)
+            upstream.settimeout(120)
             peers=[client,upstream]
             while True:
-                readable,_,_ = select.select(peers,[],[],None)
-                if not readable: break
+                readable,_,_=select.select(peers,[],[],None)
+                if not readable:
+                    break
                 for src in readable:
                     dst=upstream if src is client else client
-                    try: data=src.recv(65536)
-                    except (BlockingIOError, OSError): return
-                    if not data: return
+                    data=src.recv(65536)
+                    if not data:
+                        return
                     dst.sendall(data)
-        except (OSError, ValueError):
-            pass
+        except (OSError,ValueError,ConnectionError):
+            lb_send_failure(client,1)
         finally:
-            try: upstream.close()
-            except Exception: pass
+            if upstream:
+                try:
+                    upstream.close()
+                except Exception:
+                    pass
 
 class LBThreadingServer(socketserver.ThreadingTCPServer):
     allow_reuse_address=True
