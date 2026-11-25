@@ -376,10 +376,11 @@ class LBHandler(socketserver.BaseRequestHandler):
                 else:
                     client.sendall(b'\x05\xff')
                     return
-            elif ip_allowed and 0 in methods:
-                # Explicitly allowlisted clients may bypass LB authentication.
-                client.sendall(b'\x05\x00')
             elif 2 in methods:
+                # Prefer RFC1929 whenever the LB account is enabled, even
+                # for allowlisted source IPs. Some clients (including panel
+                # outbounds) offer both methods but expect credentials to be
+                # negotiated when username/password are configured.
                 client.sendall(b'\x05\x02')
                 if lb_recv_exact(client,1)!=b'\x01':
                     return
@@ -402,6 +403,10 @@ class LBHandler(socketserver.BaseRequestHandler):
                     print(f'[load-balancer] authentication failed for {client_ip}',flush=True)
                     return
                 client.sendall(b'\x01\x00')
+            elif ip_allowed and 0 in methods:
+                # Allowlisted clients can bypass only when they do not offer
+                # username/password (or the LB auth account is not enabled).
+                client.sendall(b'\x05\x00')
             else:
                 client.sendall(b'\x05\xff')
                 return
