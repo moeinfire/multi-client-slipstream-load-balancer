@@ -350,65 +350,62 @@ class LBHandler(socketserver.BaseRequestHandler):
                 return
             methods=lb_recv_exact(client,greeting[1])
 
-            # Load-balancer authentication is independent from backend
-            # tunnel authentication. When disabled, accept standard NoAuth
-            # clients and also tolerate clients (e.g. some outbound profiles)
-            # that offer only RFC1929; credentials are ignored in this mode.
-            # When enabled, non-allowlisted clients must pass the LB account.
+            # Keep client credentials available for the remote SOCKS server.
+            # LB authentication is checked independently; when tunnel-level
+            # gateway auth is enabled, its own saved credentials are used
+            # for that backend instead.
+            client_username=None
+            client_password=None
             if not lb_auth:
-                if 0 in methods:
-                    client.sendall(b'\x05\x00')
-                elif 2 in methods:
-                    client.sendall(b'\x05\x02')
-                    if lb_recv_exact(client,1)!=b'\x01':
+                if 2 in methods:
+                    # Prefer RFC1929 so credentials can be forwarded to an
+                    # upstream Slipstream SOCKS endpoint that requires auth.
+                    client.sendall(b'\\x05\\x02')
+                    if lb_recv_exact(client,1)!=b'\\x01':
                         return
                     ulen=lb_recv_exact(client,1)[0]
                     if not ulen:
-                        client.sendall(b'\x01\x01')
+                        client.sendall(b'\\x01\\x01')
                         return
-                    lb_recv_exact(client,ulen)
+                    client_username=lb_recv_exact(client,ulen)
                     plen=lb_recv_exact(client,1)[0]
                     if not plen:
-                        client.sendall(b'\x01\x01')
+                        client.sendall(b'\\x01\\x01')
                         return
-                    lb_recv_exact(client,plen)
-                    client.sendall(b'\x01\x00')
+                    client_password=lb_recv_exact(client,plen)
+                    client.sendall(b'\\x01\\x00')
+                elif 0 in methods:
+                    client.sendall(b'\\x05\\x00')
                 else:
-                    client.sendall(b'\x05\xff')
+                    client.sendall(b'\\x05\\xff')
                     return
             elif 2 in methods:
-                # Prefer RFC1929 whenever the LB account is enabled, even
-                # for allowlisted source IPs. Some clients (including panel
-                # outbounds) offer both methods but expect credentials to be
-                # negotiated when username/password are configured.
-                client.sendall(b'\x05\x02')
-                if lb_recv_exact(client,1)!=b'\x01':
+                client.sendall(b'\\x05\\x02')
+                if lb_recv_exact(client,1)!=b'\\x01':
                     return
                 ulen=lb_recv_exact(client,1)[0]
                 if not ulen:
-                    client.sendall(b'\x01\x01')
+                    client.sendall(b'\\x01\\x01')
                     return
-                username=lb_recv_exact(client,ulen)
+                client_username=lb_recv_exact(client,ulen)
                 plen=lb_recv_exact(client,1)[0]
                 if not plen:
-                    client.sendall(b'\x01\x01')
+                    client.sendall(b'\\x01\\x01')
                     return
-                password=lb_recv_exact(client,plen)
+                client_password=lb_recv_exact(client,plen)
                 saved_user=(get_setting('lb_auth_username','') or '').encode('utf-8')
                 saved_pass=(get_setting('lb_auth_password','') or '').encode('utf-8')
                 if (not saved_user or not saved_pass or
-                    not hmac.compare_digest(username,saved_user) or
-                    not hmac.compare_digest(password,saved_pass)):
-                    client.sendall(b'\x01\x01')
+                    not hmac.compare_digest(client_username,saved_user) or
+                    not hmac.compare_digest(client_password,saved_pass)):
+                    client.sendall(b'\\x01\\x01')
                     print(f'[load-balancer] authentication failed for {client_ip}',flush=True)
                     return
-                client.sendall(b'\x01\x00')
+                client.sendall(b'\\x01\\x00')
             elif ip_allowed and 0 in methods:
-                # Allowlisted clients can bypass only when they do not offer
-                # username/password (or the LB auth account is not enabled).
-                client.sendall(b'\x05\x00')
+                client.sendall(b'\\x05\\x00')
             else:
-                client.sendall(b'\x05\xff')
+                client.sendall(b'\\x05\\xff')
                 return
 
             picked=choose_backend()
@@ -418,7 +415,6 @@ class LBHandler(socketserver.BaseRequestHandler):
             port,upstream=picked
             upstream.settimeout(30)
 
-            # Authenticate to the selected tunnel using its own saved account.
             c=db()
             backend=c.execute('SELECT auth_enabled,auth_username,auth_password FROM tunnels WHERE port=?',(port,)).fetchone()
             c.close()
@@ -426,31 +422,31 @@ class LBHandler(socketserver.BaseRequestHandler):
                 lb_send_failure(client,1)
                 return
 
-            if backend['auth_enabled']:
-                upstream.sendall(b'\x05\x01\x02')
-            else:
-                upstream.sendall(b'\x05\x01\x00')
+            # The raw Slipstream listener requires the remote SOCKS account
+            # supplied by the client. If a panel auth gateway is enabled,
+            # authenticate to that gateway with its per-tunnel credentials.
+            upstream.sendall(b'\\x05\\x02\\x00')
             selected=lb_recv_exact(upstream,2)
-            if selected[0]!=5 or selected[1]==255:
+            if selected[0]!=5 or selected[1] not in (0,2):
                 lb_send_failure(client,1)
                 return
 
             if selected[1]==2:
-                backend_user=(backend['auth_username'] or '').encode('utf-8')
-                backend_pass=(backend['auth_password'] or '').encode('utf-8')
+                if backend['auth_enabled']:
+                    backend_user=(backend['auth_username'] or '').encode('utf-8')
+                    backend_pass=(backend['auth_password'] or '').encode('utf-8')
+                else:
+                    backend_user=client_username or b''
+                    backend_pass=client_password or b''
                 if not (1<=len(backend_user)<=255 and 1<=len(backend_pass)<=255):
                     lb_send_failure(client,1)
                     return
-                upstream.sendall(b'\x01'+bytes((len(backend_user),))+backend_user+
+                upstream.sendall(b'\\x01'+bytes((len(backend_user),))+backend_user+
                                  bytes((len(backend_pass),))+backend_pass)
                 auth_reply=lb_recv_exact(upstream,2)
-                if auth_reply!=b'\x01\x00':
+                if auth_reply!=b'\\x01\\x00':
                     lb_send_failure(client,2)
                     return
-            elif selected[1]!=0:
-                lb_send_failure(client,1)
-                return
-
             client.settimeout(120)
             upstream.settimeout(120)
             peers=[client,upstream]
