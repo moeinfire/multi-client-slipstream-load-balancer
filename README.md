@@ -1,8 +1,7 @@
 # Multi-Client Slipstream Panel with Load Balancer & DNS Scanner
 
-<p align="center">
-  <strong>🇬🇧 English</strong> · <a href="#فارسی">🇮🇷 فارسی</a>
-</p>
+<details name="readme-language">
+<summary>🇬🇧 English</summary>
 
 <a id="english"></a>
 
@@ -132,13 +131,10 @@ MIT License
 
 <p align="center">🇬🇧 English · <a href="#فارسی">🇮🇷 فارسی</a> · <a href="#multi-client-slipstream-panel-with-load-balancer--dns-scanner">⬆ Back to top</a></p>
 
----
+</details>
 
-<a id="فارسی"></a>
-
-<p align="center">
-  <a href="#english">🇬🇧 English</a> · <strong>🇮🇷 فارسی</strong>
-</p>
+<details name="readme-language">
+<summary>🇮🇷 فارسی</summary>
 
 # پنل مدیریت چندکلاینتی Slipstream با لودبالانسر و اسکنر DNS
 
@@ -265,3 +261,5 @@ MIT License
 ---
 
 <p align="center"><a href="#english">🇬🇧 English</a> · 🇮🇷 فارسی · <a href="#پنل-مدیریت-چندکلاینتی-slipstream-با-لودبالانسر-و-اسکنر-dns">⬆ بازگشت به بالا</a></p>
+
+</details>
